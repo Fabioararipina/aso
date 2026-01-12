@@ -1,0 +1,29 @@
+# Dependências
+node_modules/
+
+# Next.js build
+.next/
+out/
+build/
+
+# Variáveis de Ambiente (Segurança)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# WhatsApp Session (NÃO COMMITE ISSO)
+backend/.wwebjs_auth/
+
+# Uploads (Opcional: Geralmente não se commita uploads de teste)
+backend/uploads/
+
+# OS
+.DS_Store
+Thumbs.db

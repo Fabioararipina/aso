@@ -1,0 +1,147 @@
+﻿const db = require('../config/database');
+
+class Agendamento {
+  static async criar(dados) {
+    const { paciente_id, medico_id, data_consulta, horario, tipo_consulta, valor, observacoes } = dados;
+    const result = await db.query(
+      'INSERT INTO agendamentos (paciente_id, medico_id, data_consulta, horario, tipo_consulta, valor, observacoes, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [paciente_id, medico_id, data_consulta, horario, tipo_consulta || 'PRIMEIRA_VEZ', valor, observacoes, 'PENDENTE']
+    );
+    return result.rows[0];
+  }
+
+  static async listarPorMedicoEData(medico_id, data) {
+    const result = await db.query(
+      'SELECT a.*, p.nome as paciente_nome, p.whatsapp FROM agendamentos a JOIN pacientes p ON a.paciente_id = p.id WHERE a.medico_id = $1 AND a.data_consulta = $2 AND a.status != $3 ORDER BY a.horario',
+      [medico_id, data, 'CANCELADO']
+    );
+    return result.rows;
+  }
+
+  static async listarTodosPorData(data) {
+    const result = await db.query(
+      'SELECT a.*, p.nome as paciente_nome, m.nome as medico_nome FROM agendamentos a JOIN pacientes p ON a.paciente_id = p.id JOIN medicos m ON a.medico_id = m.id WHERE a.data_consulta = $1 ORDER BY a.horario',
+      [data]
+    );
+    return result.rows;
+  }
+
+  static async listarParaTv(data) {
+    // Busca agendamentos do dia + Média de tempo do médico + Foto
+    const query = `
+      SELECT 
+        a.id, a.horario, a.status, a.inicio_atendimento,
+        p.nome as paciente_nome, 
+        m.id as medico_id, m.nome as medico_nome, m.foto_path,
+        (
+          SELECT AVG(EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60)::INTEGER
+          FROM agendamentos a2
+          WHERE a2.medico_id = m.id AND a2.status = 'CONCLUIDO' AND a2.inicio_atendimento IS NOT NULL
+          LIMIT 10
+        ) as tempo_medio
+      FROM agendamentos a
+      JOIN pacientes p ON a.paciente_id = p.id
+      JOIN medicos m ON a.medico_id = m.id
+      WHERE a.data_consulta = $1 
+      AND a.status IN ('CONFIRMADO', 'PRESENTE', 'EM_ATENDIMENTO')
+      ORDER BY a.horario ASC
+    `;
+    const result = await db.query(query, [data]);
+    return result.rows;
+  }
+
+  static async listarPendentes() {
+    const result = await db.query(
+      'SELECT a.*, p.nome as paciente_nome, p.whatsapp, m.nome as medico_nome FROM agendamentos a JOIN pacientes p ON a.paciente_id = p.id JOIN medicos m ON a.medico_id = m.id WHERE a.status = $1 ORDER BY a.data_consulta, a.horario',
+      ['PENDENTE']
+    );
+    return result.rows;
+  }
+
+  static async confirmar(id) {
+    const result = await db.query(
+      'UPDATE agendamentos SET status = $1, atualizado_em = NOW() WHERE id = $2 RETURNING *',
+      ['CONFIRMADO', id]
+    );
+    return result.rows[0];
+  }
+
+  static async cancelar(id) {
+    const result = await db.query(
+      'UPDATE agendamentos SET status = $1, atualizado_em = NOW() WHERE id = $2 RETURNING *',
+      ['CANCELADO', id]
+    );
+    return result.rows[0];
+  }
+
+  static async atualizarStatus(id, status) {
+    let query = 'UPDATE agendamentos SET status = $1, atualizado_em = NOW()';
+    const params = [status, id];
+
+    if (status === 'EM_ATENDIMENTO') {
+      query += ', inicio_atendimento = NOW()';
+    }
+
+    query += ' WHERE id = $2 RETURNING *';
+
+    const result = await db.query(query, params);
+    return result.rows[0];
+  }
+
+  static async calcularTempoMedio(medico_id) {
+    // Pega os últimos 10 atendimentos concluídos deste médico
+    const query = `
+      SELECT AVG(EXTRACT(EPOCH FROM (atualizado_em - inicio_atendimento))/60)::INTEGER as media_minutos
+      FROM agendamentos 
+      WHERE medico_id = $1 
+      AND status = 'CONCLUIDO' 
+      AND inicio_atendimento IS NOT NULL
+      ORDER BY data_consulta DESC, horario DESC
+      LIMIT 10
+    `;
+    const result = await db.query(query, [medico_id]);
+    return result.rows[0]?.media_minutos || 20; // Default 20 min
+  }
+
+  static async buscarProximoDaFila(medico_id, data) {
+    // Busca o próximo paciente (CONFIRMADO ou PRESENTE) ordenado por horário
+    const query = `
+      SELECT a.*, p.nome as paciente_nome, p.whatsapp 
+      FROM agendamentos a
+      JOIN pacientes p ON a.paciente_id = p.id
+      WHERE a.medico_id = $1 
+      AND a.data_consulta = $2 
+      AND a.status IN ('CONFIRMADO', 'PRESENTE')
+      ORDER BY a.horario ASC
+      LIMIT 1
+    `;
+    const result = await db.query(query, [medico_id, data]);
+    return result.rows[0];
+  }
+
+  static async buscarPorId(id) {
+    const result = await db.query(
+      'SELECT a.*, p.nome as paciente_nome, m.nome as medico_nome, m.especialidade, p.whatsapp FROM agendamentos a JOIN pacientes p ON a.paciente_id = p.id JOIN medicos m ON a.medico_id = m.id WHERE a.id = $1',
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  static async salvarProntuario(id, path) {
+    const result = await db.query(
+      'UPDATE agendamentos SET prontuario_path = $1, status = $2, atualizado_em = NOW() WHERE id = $3 RETURNING *',
+      [path, 'CONCLUIDO', id]
+    );
+    return result.rows[0];
+  }
+
+  static async salvarNps(id, nota, comentario) {
+    const result = await db.query(
+      'UPDATE agendamentos SET nps_nota = $1, nps_comentario = $2 WHERE id = $3 RETURNING *',
+      [nota, comentario, id]
+    );
+    return result.rows[0];
+  }
+}
+
+module.exports = Agendamento;
