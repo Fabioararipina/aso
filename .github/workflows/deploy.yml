@@ -11,23 +11,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Debug Secrets (Masked)
+        run: |
+          if [ -z "${{ secrets.HOST }}" ]; then echo "❌ HOST is missing"; exit 1; else echo "✅ HOST is present"; fi
+          if [ -z "${{ secrets.USERNAME }}" ]; then echo "❌ USERNAME is missing"; exit 1; else echo "✅ USERNAME is present"; fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then echo "❌ SSH_PRIVATE_KEY is missing"; exit 1; else echo "✅ SSH_PRIVATE_KEY is present"; fi
+
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
+            echo "Conectado ao servidor!"
             cd /var/www/essencialsaude
             git pull origin main
             
             # Atualiza dependências Backend
             cd backend
             npm install
-            
-            # Atualiza Banco (Migrations)
-            # Opcional: Descomente se quiser rodar migrations automaticamente
-            # node src/utils/migration_*.js
             
             # Atualiza Frontend
             cd ../frontend
