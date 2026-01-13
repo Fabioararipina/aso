@@ -12,5 +12,6 @@ router.get('/:id/horarios', MedicoController.listarHorarios);
 router.post('/:id/horarios', MedicoController.adicionarHorario);
 router.delete('/horarios/:id', MedicoController.removerHorario);
 router.get('/:id/disponiveis', MedicoController.disponiveis);
+router.post('/:id/atraso', MedicoController.notificarAtraso);
 
 module.exports = router;

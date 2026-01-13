@@ -25,30 +25,23 @@ class AgendamentoController {
 
       // Envia WhatsApp estilo "Cupom"
       const msg = `
-*ESSENCIAL SAÚDE*
+🎫 *SOLICITAÇÃO DE AGENDAMENTO*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
+Recebemos seu pedido.
 
-🎫 *SOLICITAÇÃO RECEBIDA* 🎫
---------------------------------
-Olá *${agendamentoCompleto.paciente_nome}*,
-Recebemos seu pedido de agendamento.
-
-👨‍⚕️ *Profissional:* ${agendamentoCompleto.medico_nome}
+👨‍⚕️ *Especialista:* Dr(a). ${agendamentoCompleto.medico_nome}
 📅 *Data:* ${new Date(agendamentoCompleto.data_consulta).toLocaleDateString('pt-BR')}
 ⏰ *Horário:* ${agendamentoCompleto.horario.slice(0, 5)}
 📂 *Status:* 🟡 PENDENTE
 
---------------------------------
+-------------------------------
 ℹ️ *Aguarde a confirmação.*
 Você receberá uma nova mensagem assim que o horário for aprovado pela recepção.
 
-🌳 *CONHEÇA AGORA:*
-*Cartão Essencial Saúde*
-Descontos exclusivos em consultas e exames:
-${process.env.FRONTEND_URL}/cartao
-
-🎁 *Tem alguém precisando cuidar da saúde?*
-Indique clicando aqui:
-${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
+💳 *DICA:*
+Conheça o *Cartão Essencial Saúde* e ganhe descontos exclusivos:
+${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/cartao
 `;
       whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msg);
 
@@ -72,6 +65,17 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
     }
   }
 
+  static async verFila(req, res) {
+    try {
+      const { id } = req.params;
+      const dados = await Agendamento.buscarPosicaoFila(id);
+      if (!dados) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+      res.json(dados);
+    } catch (error) {
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
   static async listarPorDia(req, res) {
     try {
       const { data } = req.query; // YYYY-MM-DD
@@ -84,7 +88,8 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
 
   static async dadosTv(req, res) {
     try {
-      const hoje = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const lista = await Agendamento.listarParaTv(hoje);
 
       // Agrupar por médico para calcular previsão cumulativa
@@ -92,9 +97,11 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       const listaProcessada = lista.map(item => {
         const medicoId = item.medico_id;
         const tempoMedio = item.tempo_medio || 20; // Default 20 min
+        const atrasoMedico = item.atraso_minutos || 0;
 
         if (!filasPorMedico[medicoId]) {
-          filasPorMedico[medicoId] = 0; // Minutos acumulados
+          // O atraso inicial da fila é o atraso informado pelo médico
+          filasPorMedico[medicoId] = atrasoMedico; 
         }
 
         let previsao = 'Em breve';
@@ -102,7 +109,7 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
         if (item.status === 'EM_ATENDIMENTO') {
           previsao = 'Agora';
         } else {
-          // Calcula hora estimada: Agora + Acumulado
+          // Calcula hora estimada: Agora + Acumulado (inclui atraso)
           const minutosEspera = filasPorMedico[medicoId];
           const dataPrevisao = new Date();
           dataPrevisao.setMinutes(dataPrevisao.getMinutes() + minutosEspera);
@@ -141,7 +148,28 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       
       console.log('Tentando enviar WhatsApp de confirmação para:', agendamentoCompleto.whatsapp);
 
-      const msg = `Olá ${agendamentoCompleto.paciente_nome}, seu agendamento com Dr(a). ${agendamentoCompleto.medico_nome} no dia ${new Date(agendamentoCompleto.data_consulta).toLocaleDateString('pt-BR')} às ${agendamentoCompleto.horario.slice(0,5)} foi CONFIRMADO.`;
+      // Garante que usa o IP correto se não houver variável de ambiente
+      const frontendUrl = process.env.FRONTEND_URL || 'http://192.168.20.19:3000';
+      const linkFila = `${frontendUrl}/agendamento/fila/${id}`;
+      
+      const msg = `
+🎫 *COMPROVANTE DE AGENDAMENTO*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
+Seu horário está garantido.
+
+👨‍⚕️ *Especialista:* Dr(a). ${agendamentoCompleto.medico_nome}
+📅 *Data:* ${new Date(agendamentoCompleto.data_consulta).toLocaleDateString('pt-BR')}
+⏰ *Horário:* ${agendamentoCompleto.horario.slice(0,5)}
+
+📍 *Local:* Clínica Essencial Saúde
+
+🔗 *ACOMPANHE SUA VEZ:*
+Toque no link abaixo para ver sua posição na fila em tempo real:
+${linkFila}
+
+_Por favor, chegue com 10 minutos de antecedência._
+`;
       
       const enviou = await whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msg);
       console.log('Resultado do envio WhatsApp:', enviou ? 'SUCESSO' : 'FALHA');
@@ -175,7 +203,9 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       const { medico_id } = req.params;
       const { data } = req.query;
       // Se vier data na query usa ela, senão usa hoje
-      const dataFiltro = data || new Date().toISOString().split('T')[0]; 
+      const now = new Date();
+      const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const dataFiltro = data || hoje; 
       
       const agendamentos = await Agendamento.listarPorMedicoEData(medico_id, dataFiltro);
       res.json(agendamentos);
@@ -185,9 +215,10 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
   }
 
   static async alterarStatus(req, res) {
+    const { id } = req.params;
+    const { status } = req.body;
     try {
-      const { id } = req.params;
-      const { status } = req.body;
+      console.log(`[STATUS] Alterando agendamento ${id} para: ${status}`);
       
       const agendamento = await Agendamento.atualizarStatus(id, status);
       const agendamentoCompleto = await Agendamento.buscarPorId(id);
@@ -199,25 +230,87 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       
       // Se for chamar o paciente, emite evento específico para TV e manda ZAP
       if (status === 'EM_ATENDIMENTO') {
+        console.log(`[STATUS] Chamar paciente: ${agendamentoCompleto.paciente_nome}`);
         io.emit('chamar-paciente', agendamentoCompleto);
         
         // 1. Avisa o paciente atual
-        const msgAtual = `🔔 *SUA VEZ!* \nOlá ${agendamentoCompleto.paciente_nome}, o Dr(a). ${agendamentoCompleto.medico_nome} já está lhe aguardando no consultório. Pode entrar!`;
-        whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msgAtual);
+        const linkFila = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${id}`;
+        const msgAtual = `
+🔔 *SUA VEZ CHEGOU!*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
 
-        // 2. Avisa o PRÓXIMO da fila
-        const hoje = new Date().toISOString().split('T')[0];
-        const proximo = await Agendamento.buscarProximoDaFila(agendamentoCompleto.medico_id, hoje);
+👨‍⚕️ *Dr(a). ${agendamentoCompleto.medico_nome}* já está lhe aguardando no consultório.
+
+📍 *Dirija-se à sala de atendimento.*
+Boa consulta!
+`;
+        whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msgAtual).then(sent => {
+           console.log(`[ZAP] Mensagem "Sua Vez" para ${agendamentoCompleto.paciente_nome}: ${sent ? 'OK' : 'FALHA'}`);
+        });
+
+        // 2. Avisa os PRÓXIMOS da fila (até 4 pessoas)
+        const now = new Date();
+        const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const tempoMedio = await Agendamento.calcularTempoMedio(agendamentoCompleto.medico_id);
         
-        if (proximo) {
-          const tempoMedio = await Agendamento.calcularTempoMedio(agendamentoCompleto.medico_id);
-          const msgProximo = `⏳ *PREPARE-SE!* \nOlá ${proximo.paciente_nome}, você é o próximo da fila para atendimento com Dr(a). ${agendamentoCompleto.medico_nome}. \nTempo estimado: ~${tempoMedio} min. \nPor favor, fique atento(a)!`;
-          whatsappService.enviarMensagem(proximo.whatsapp, msgProximo);
-        }
+        // Busca os próximos 4 pacientes confirmados/presentes
+        const proximos = await Agendamento.buscarProximosDaFila(agendamentoCompleto.medico_id, hoje, 4);
+        console.log(`[STATUS] Notificando ${proximos.length} pacientes na fila.`);
+        
+        proximos.forEach((p, index) => {
+          // Wrap individual message sending in a try-catch to prevent crashing the whole request
+          try {
+            const posicao = index + 1;
+            const tempoEstimado = tempoMedio * posicao;
+            let msgProximo = '';
+            const linkFilaProx = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${p.id}`;
+
+            if (posicao === 1) {
+               msgProximo = `
+⏳ *PREPARE-SE!*
+-------------------------------
+Olá, *${p.paciente_nome}*.
+Você é o *PRÓXIMO* da fila!
+
+👨‍⚕️ *Especialista:* Dr(a). ${agendamentoCompleto.medico_nome}
+⏱️ *Tempo Estimado:* ~${tempoEstimado} min
+
+🔗 *Acompanhe:*
+${linkFilaProx}
+
+_Por favor, fique atento(a) à chamada._
+`;
+            } else {
+               msgProximo = `
+🚶 *A FILA ANDOU*
+-------------------------------
+Olá, *${p.paciente_nome}*.
+Um atendimento foi iniciado.
+
+👥 *Sua Posição:* ${posicao}º lugar
+⏱️ *Tempo Estimado:* ~${tempoEstimado} min
+
+🔗 *Acompanhe:*
+${linkFilaProx}
+`;
+            }
+
+            // Delay pequeno para não bloquear
+            setTimeout(() => {
+               whatsappService.enviarMensagem(p.whatsapp, msgProximo)
+                .then(sent => console.log(`[ZAP] Notificação fila para ${p.paciente_nome} (pos ${posicao}): ${sent ? 'OK' : 'FALHA'}`))
+                .catch(err => console.error(`Erro ao enviar msg para fila (${p.paciente_nome}):`, err));
+            }, index * 2000);
+          } catch (innerError) {
+             console.error(`Erro na lógica de notificação fila para ${p.paciente_nome}:`, innerError);
+          }
+        });
       }
 
       res.json(agendamento);
     } catch (error) {
+      console.error(`[ERRO STATUS] ${id}:`, error);
       res.status(500).json({ erro: error.message });
     }
   }
@@ -236,7 +329,17 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       const agendamentoCompleto = await Agendamento.buscarPorId(id);
 
       // Envia via WhatsApp
-      const legenda = `📄 Olá ${agendamentoCompleto.paciente_nome}, aqui está o seu documento (Prontuário/Receita) da consulta com Dr(a). ${agendamentoCompleto.medico_nome}.`;
+      const legenda = `
+📄 *DOCUMENTO DIGITAL*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*.
+Aqui está o documento da sua consulta.
+
+👨‍⚕️ *Profissional:* Dr(a). ${agendamentoCompleto.medico_nome}
+📅 *Data:* ${new Date().toLocaleDateString('pt-BR')}
+
+_Guarde este arquivo com segurança._
+`;
       await whatsappService.enviarArquivo(agendamentoCompleto.whatsapp, filePath, legenda);
 
       // Notifica frontends
@@ -264,6 +367,16 @@ ${process.env.FRONTEND_URL}/agendamento/sucesso?id=${agendamento.id}
       }
 
       res.json({ sucesso: true, agendamento });
+    } catch (error) {
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
+  static async listarHistorico(req, res) {
+    try {
+      const { paciente_id } = req.params;
+      const historico = await Agendamento.listarHistorico(paciente_id);
+      res.json(historico);
     } catch (error) {
       res.status(500).json({ erro: error.message });
     }

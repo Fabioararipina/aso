@@ -10,7 +10,7 @@ export default function RecepcaoPage() {
   const [loading, setLoading] = useState(true);
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     fetchAgendamentos();
@@ -71,11 +71,17 @@ export default function RecepcaoPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8 bg-white p-6 rounded-xl shadow-sm">
-          <h1 className="text-3xl font-bold text-gray-900">Painel da Recepção</h1>
-          <p className="text-gray-600 mt-2">Gerencie os agendamentos pendentes em tempo real.</p>
-        </header>
+      {/* Header */}
+      <div className="bg-white p-4 shadow-sm border-b flex justify-between items-center">
+        <div className="flex items-center gap-3">
+           <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
+           <h1 className="text-xl font-bold text-gray-700 border-l pl-3 ml-1 border-gray-300">Recepção</h1>
+        </div>
+        <div className="flex gap-4 items-center">
+        </div>
+      </div>
 
+      <div className="mt-8">
         {loading ? (
           <p className="text-center text-gray-600 animate-pulse">Carregando lista de espera...</p>
         ) : agendamentos.length === 0 ? (
@@ -134,6 +140,7 @@ export default function RecepcaoPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

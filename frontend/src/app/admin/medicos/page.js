@@ -6,19 +6,29 @@ import axios from 'axios';
 export default function AdminMedicosPage() {
   const [medicos, setMedicos] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState(null);
   const [nome, setNome] = useState('');
   const [crm, setCrm] = useState('');
   const [especialidade, setEspecialidade] = useState('');
   const [foto, setFoto] = useState(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     fetchMedicos();
   }, []);
 
   const fetchMedicos = () => {
-    axios.get(`${API_URL}/api/medicos`).then(res => setMedicos(res.data));
+    setError(null);
+    axios.get(`${API_URL}/api/medicos`)
+      .then(res => {
+        console.log('Medicos loaded:', res.data);
+        setMedicos(res.data);
+      })
+      .catch(err => {
+        console.error('Error loading medicos:', err);
+        setError('Erro ao carregar médicos: ' + (err.response?.data?.erro || err.message));
+      });
   };
 
   const handleEdit = (medico) => {
@@ -151,6 +161,15 @@ export default function AdminMedicosPage() {
           {/* LISTA */}
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="text-xl font-bold mb-4 text-gray-700">Equipe Atual ({medicos.length})</h2>
+            
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                <strong className="font-bold">Ops! </strong>
+                <span className="block sm:inline">{error}</span>
+                <p className="text-xs mt-1">Tentando conectar em: {API_URL}</p>
+              </div>
+            )}
+
             {medicos.length === 0 ? (
               <p className="text-gray-500 text-center py-4">Nenhum médico cadastrado.</p>
             ) : (

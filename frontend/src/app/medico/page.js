@@ -8,11 +8,23 @@ import { format } from 'date-fns';
 export default function MedicoPage() {
   const [medicos, setMedicos] = useState([]);
   const [selectedMedico, setSelectedMedico] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  });
   const [agendamentos, setAgendamentos] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  // Estados para Atraso
+  const [modalAtrasoOpen, setModalAtrasoOpen] = useState(false);
+  const [tempoAtraso, setTempoAtraso] = useState(15);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  // Estados para Histórico
+  const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false);
+  const [historico, setHistorico] = useState([]);
+  const [pacienteHistoricoNome, setPacienteHistoricoNome] = useState('');
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     // Carregar lista de médicos para seleção (simulando login)
@@ -50,10 +62,32 @@ export default function MedicoPage() {
   const atualizarStatus = async (id, novoStatus) => {
     try {
       await axios.put(`${API_URL}/api/agendamentos/${id}/status`, { status: novoStatus });
-      // O socket vai atualizar a lista, mas podemos forçar visualmente para ser instantâneo
       setAgendamentos(prev => prev.map(a => a.id === id ? { ...a, status: novoStatus } : a));
     } catch (error) {
       alert('Erro ao atualizar status');
+    }
+  };
+
+  const enviarAtraso = async () => {
+    if (!confirm(`Confirma enviar aviso de atraso de ${tempoAtraso} min para todos os pacientes da fila?`)) return;
+    try {
+      await axios.post(`${API_URL}/api/medicos/${selectedMedico}/atraso`, { minutos: tempoAtraso });
+      alert('Avisos enviados com sucesso!');
+      setModalAtrasoOpen(false);
+    } catch (error) {
+      alert('Erro ao enviar avisos: ' + (error.response?.data?.erro || error.message));
+    }
+  };
+
+  const abrirHistorico = async (pacienteId, nome) => {
+    setPacienteHistoricoNome(nome);
+    setModalHistoricoOpen(true);
+    setHistorico([]); // Limpa anterior
+    try {
+      const res = await axios.get(`${API_URL}/api/agendamentos/paciente/${pacienteId}/historico`);
+      setHistorico(res.data);
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
     }
   };
 
@@ -67,7 +101,8 @@ export default function MedicoPage() {
         {/* Header / Seleção de Médico e Data */}
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-8 bg-white p-4 rounded-lg shadow">
           <div className="flex items-center gap-4 w-full md:w-auto">
-            <h1 className="text-2xl font-bold text-gray-800 whitespace-nowrap">Painel Médico</h1>
+            <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
+            <h1 className="text-2xl font-bold text-gray-800 whitespace-nowrap border-l pl-4 border-gray-200">Painel Médico</h1>
             <select 
               value={selectedMedico}
               onChange={(e) => setSelectedMedico(e.target.value)}
@@ -80,15 +115,106 @@ export default function MedicoPage() {
             </select>
           </div>
           
-          <div className="w-full md:w-auto">
+          <div className="flex gap-2 w-full md:w-auto">
              <input 
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="p-2 border rounded border-gray-300 text-gray-700 w-full"
+              className="p-2 border rounded border-gray-300 text-gray-700 flex-1"
             />
+            {selectedMedico && (
+              <button 
+                onClick={() => setModalAtrasoOpen(true)}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 rounded text-sm whitespace-nowrap"
+              >
+                ⏱️ Avisar Atraso
+              </button>
+            )}
           </div>
         </div>
+
+        {/* MODAL ATRASO */}
+        {modalAtrasoOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h3 className="font-bold text-lg mb-4 text-gray-800">Informar Atraso na Agenda</h3>
+              <p className="text-sm text-gray-600 mb-4">Isso enviará um WhatsApp para todos os pacientes aguardando.</p>
+              
+              <div className="flex gap-2 mb-4">
+                {[10, 15, 30, 45, 60].map(m => (
+                  <button 
+                    key={m}
+                    onClick={() => setTempoAtraso(m)}
+                    className={`flex-1 py-2 rounded font-bold border ${tempoAtraso === m ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-300'}`}
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-600 mb-1">Outro tempo (minutos)</label>
+                <input 
+                  type="number" 
+                  value={tempoAtraso} 
+                  onChange={(e) => setTempoAtraso(Number(e.target.value))}
+                  className="w-full p-2 border rounded border-gray-300 text-gray-900 font-bold text-center"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={enviarAtraso} className="flex-1 bg-orange-600 text-white py-2 rounded font-bold">ENVIAR AVISO</button>
+                <button onClick={() => setModalAtrasoOpen(false)} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold">CANCELAR</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL HISTORICO */}
+        {modalHistoricoOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+              <div className="p-6 border-b flex justify-between items-center bg-blue-50 rounded-t-xl">
+                <div>
+                  <h3 className="font-bold text-xl text-blue-900">Histórico Clínico</h3>
+                  <p className="text-blue-700">{pacienteHistoricoNome}</p>
+                </div>
+                <button onClick={() => setModalHistoricoOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+                {historico.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">Nenhum atendimento anterior encontrado.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {historico.map(h => (
+                      <li key={h.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div className="flex justify-between mb-2">
+                          <span className="font-bold text-gray-800">{new Date(h.data_consulta).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-sm bg-green-100 text-green-700 px-2 rounded-full">{h.medico_nome}</span>
+                        </div>
+                        {h.prontuario_path ? (
+                          <a 
+                            href={`${API_URL}/${h.prontuario_path.replace(/\\/g, '/')}`} 
+                            target="_blank" 
+                            className="text-blue-600 hover:underline text-sm flex items-center gap-1 mt-2"
+                          >
+                            📄 Ver Prontuario/Receita (PDF)
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Sem anexo</span>
+                        )}
+                        {h.observacoes && (
+                           <p className="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded">"{h.observacoes}"</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {!selectedMedico ? (
           <div className="text-center text-gray-500 mt-20">
@@ -99,18 +225,25 @@ export default function MedicoPage() {
             
             {/* Status: EM ATENDIMENTO (Destaque) */}
             {fila.find(a => a.status === 'EM_ATENDIMENTO') && (
-              <div className="bg-blue-600 text-white rounded-xl shadow-lg p-6 mb-8 transform scale-105 border-4 border-blue-400">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-blue-100 text-sm uppercase tracking-wide font-bold">Em Atendimento</p>
-                    <h2 className="text-4xl font-bold mt-2">
+              <div className="bg-blue-600 text-white rounded-xl shadow-lg p-6 mb-8 transform scale-105 border-4 border-blue-400 relative overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
+                  <div className="text-center md:text-left">
+                    <p className="text-blue-100 text-sm uppercase tracking-wide font-bold mb-1">Em Atendimento</p>
+                    <h2 className="text-4xl font-bold mb-2">
                       {fila.find(a => a.status === 'EM_ATENDIMENTO').paciente_nome}
                     </h2>
+                    <button 
+                      onClick={() => abrirHistorico(fila.find(a => a.status === 'EM_ATENDIMENTO').paciente_id, fila.find(a => a.status === 'EM_ATENDIMENTO').paciente_nome)}
+                      className="text-white text-sm bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-full flex items-center gap-1 mx-auto md:mx-0 w-fit"
+                    >
+                      📋 Ver Histórico Completo
+                    </button>
                   </div>
                   
-                  <div className="flex flex-col items-end gap-2">
-                    <label className="bg-white text-blue-600 hover:bg-gray-100 font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 cursor-pointer">
-                      <span>📤 FINALIZAR E ENVIAR PDF</span>
+                  <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                    <label className="w-full md:w-auto bg-white text-blue-600 hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-lg transition transform hover:scale-105 cursor-pointer text-center flex flex-col items-center gap-1">
+                      <span className="text-lg">📤 FINALIZAR</span>
+                      <span className="text-xs font-normal opacity-80">(Anexar PDF e Enviar)</span>
                       <input 
                         type="file" 
                         accept="application/pdf"
@@ -137,7 +270,7 @@ export default function MedicoPage() {
                     </label>
                     <button 
                       onClick={() => atualizarStatus(fila.find(a => a.status === 'EM_ATENDIMENTO').id, 'CONCLUIDO')}
-                      className="text-white text-sm underline hover:text-blue-200"
+                      className="text-white text-sm underline hover:text-blue-200 mt-2"
                     >
                       Finalizar sem arquivo
                     </button>
@@ -181,16 +314,9 @@ export default function MedicoPage() {
                       </div>
 
                       <div className="flex space-x-2">
-                        {agendamento.status === 'CONFIRMADO' && (
-                          <button 
-                            onClick={() => atualizarStatus(agendamento.id, 'PRESENTE')}
-                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded"
-                          >
-                            Chegou
-                          </button>
-                        )}
+                        {/* Botão CHEGOU removido a pedido. A recepção que faz isso. */}
                         
-                        {agendamento.status === 'PRESENTE' && (
+                        {(agendamento.status === 'PRESENTE' || agendamento.status === 'CONFIRMADO') && (
                           <button 
                             onClick={() => atualizarStatus(agendamento.id, 'EM_ATENDIMENTO')}
                             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded shadow"
@@ -200,8 +326,11 @@ export default function MedicoPage() {
                         )}
                         
                         {agendamento.status === 'CONCLUIDO' && (
-                          <span className="text-green-600 font-medium flex items-center">
-                            ✓ Atendido
+                          <span className="text-green-600 font-medium flex items-center gap-2">
+                             <button onClick={() => abrirHistorico(agendamento.paciente_id, agendamento.paciente_nome)} className="text-blue-500 text-xs underline">
+                              Histórico
+                             </button>
+                             ✓ Atendido
                           </span>
                         )}
                       </div>

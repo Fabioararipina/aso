@@ -16,7 +16,7 @@ export default function CalendarioRecepcaoPage() {
   const [selectedSlot, setSelectedSlot] = useState(null); // { medicoId, hora, agendamento? }
   const [form, setForm] = useState({ nome: '', whatsapp: '', observacoes: '' });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     fetchDados();
@@ -78,11 +78,29 @@ export default function CalendarioRecepcaoPage() {
     } catch (e) { alert('Erro ao agendar'); }
   };
 
-  const horas = [];
-  for(let i=8; i<=18; i++) {
-    horas.push(`${i.toString().padStart(2, '0')}:00`);
-    horas.push(`${i.toString().padStart(2, '0')}:30`);
-  }
+  // --- GERAÇÃO DINÂMICA DE LINHAS (SLOTS) ---
+  // Combina horas padrão (30 em 30min) + Horários exatos dos agendamentos existentes
+  const gerarLinhasDoTempo = () => {
+    const temposSet = new Set();
+    
+    // 1. Adiciona grade padrão (para não ficar vazio) - 07:00 às 20:00
+    for(let i=7; i<=20; i++) {
+      temposSet.add(`${i.toString().padStart(2, '0')}:00`);
+      temposSet.add(`${i.toString().padStart(2, '0')}:30`);
+    }
+
+    // 2. Adiciona horários dos agendamentos reais (para garantir que apareçam)
+    agendamentos.forEach(a => {
+      if (a.horario) {
+        temposSet.add(a.horario.slice(0, 5));
+      }
+    });
+
+    // 3. Converte para array e ordena
+    return Array.from(temposSet).sort();
+  };
+
+  const horas = gerarLinhasDoTempo();
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col h-screen overflow-hidden">
@@ -97,7 +115,7 @@ export default function CalendarioRecepcaoPage() {
           </span>
           <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-2 hover:bg-gray-100 rounded">▶</button>
         </div>
-        <button onClick={fetchDados} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-bold">Atualizar</button>
+        <button onClick={fetchDados} className="bg-[#5b8dfd] text-white px-4 py-2 rounded hover:bg-blue-600 text-sm font-bold shadow-sm transition">Atualizar</button>
       </header>
 
       {/* GRID DA AGENDA */}

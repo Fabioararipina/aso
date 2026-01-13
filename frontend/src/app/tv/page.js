@@ -15,27 +15,16 @@ export default function TvPage() {
   const [news, setNews] = useState(null); // Estado para notícias
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
-  useEffect(() => {
-    fetchDados(); 
-    fetchMidias(); 
-
-    const socket = io(API_URL);
-    // ... (socket listeners) ...
-    socket.on('agendamento-atualizado', () => fetchDados());
-    socket.on('agendamento-confirmado', () => fetchDados());
-    socket.on('novo-agendamento', () => fetchDados());
-    socket.on('chamar-paciente', (agendamento) => {
-      setChamadaAtual(agendamento);
-      playAlertSound();
-      speakText(`Paciente ${agendamento.paciente_nome}, comparecer ao consultório do Doutor ${agendamento.medico_nome}`);
-      setTimeout(() => { setChamadaAtual(null); }, 15000);
-    });
-
-    const interval = setInterval(fetchDados, 60000);
-    return () => { socket.disconnect(); clearInterval(interval); };
-  }, []);
+  const fetchDados = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/agendamentos/tv/dados`);
+      setLista(res.data);
+    } catch (error) {
+      console.error('Erro ao buscar dados TV:', error);
+    }
+  };
 
   const fetchMidias = async () => {
     try {
@@ -46,29 +35,7 @@ export default function TvPage() {
     } catch (e) { console.error('Erro midias', e); }
   };
 
-  useEffect(() => {
-    if (midias.length === 0) return;
-
-    const currentSlide = midias[currentSlideIndex];
-    
-    // Fetch condicional baseado no tipo
-    if (currentSlide.tipo === 'TEMPO' && !weather) {
-      fetchWeather(currentSlide.conteudo);
-    } else if (currentSlide.tipo === 'NOTICIA' && !news) {
-      fetchNews(currentSlide.conteudo); // conteudo = url rss
-    }
-
-    const timer = setTimeout(() => {
-      setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
-      setWeather(null); 
-      setNews(null); // Reseta news
-    }, currentSlide.duracao * 1000);
-
-    return () => clearTimeout(timer);
-  }, [currentSlideIndex, midias]);
-
   const fetchWeather = async (cidade) => {
-    // ... (código weather igual) ...
     try {
       const cidadeLimpa = cidade.split(' - ')[0].trim();
       const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeLimpa}&count=1&language=pt&format=json`);
@@ -94,19 +61,17 @@ export default function TvPage() {
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlLimpa)}`;
       const res = await axios.get(apiUrl);
       if (res.data.items && res.data.items.length > 0) {
-        // Pega uma notícia aleatória das 5 primeiras para variar
         const randomIndex = Math.floor(Math.random() * Math.min(5, res.data.items.length));
         const item = res.data.items[randomIndex];
         setNews({
           titulo: item.title,
-          imagem: item.enclosure?.link || item.thumbnail || null, // Tenta achar imagem
+          imagem: item.enclosure?.link || item.thumbnail || null,
           fonte: res.data.feed.title
         });
       }
     } catch (e) { console.error('Erro news', e); }
   };
 
-  // Helper para ícone e texto (igual)
   const getWeatherInfo = (code) => {
     if (code === 0) return { icon: '☀️', text: 'Céu Limpo' };
     if (code <= 3) return { icon: '⛅', text: 'Parcialmente Nublado' };
@@ -118,27 +83,21 @@ export default function TvPage() {
     return { icon: '🌡️', text: 'Clima Variável' };
   };
 
-  const fetchDados = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/agendamentos/tv/dados`);
-      setLista(res.data);
-    } catch (error) {
-      console.error('Erro ao buscar dados TV:', error);
-    }
-  };
-
   const playAlertSound = () => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
         osc.frequency.value = 440; 
-        gain.gain.value = 0.1;
+        gain.gain.value = 0.5;
         osc.start();
         setTimeout(() => { osc.frequency.value = 554.37; }, 400); 
         setTimeout(() => { osc.stop(); }, 1200);
@@ -155,15 +114,67 @@ export default function TvPage() {
     }
   };
 
+  useEffect(() => {
+    const unlockAudio = () => {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        ctx.resume().then(() => {
+          console.log('AudioContext resumed!');
+        });
+      }
+      document.removeEventListener('click', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio);
+    
+    fetchDados(); 
+    fetchMidias(); 
+
+    const socket = io(API_URL);
+    socket.on('agendamento-atualizado', () => fetchDados());
+    socket.on('agendamento-confirmado', () => fetchDados());
+    socket.on('novo-agendamento', () => fetchDados());
+    socket.on('chamar-paciente', (agendamento) => {
+      console.log('Recebendo chamada de paciente:', agendamento);
+      setChamadaAtual(agendamento);
+      playAlertSound();
+      speakText(`Paciente ${agendamento.paciente_nome}, comparecer ao consultório do Doutor ${agendamento.medico_nome}`);
+      setTimeout(() => { setChamadaAtual(null); }, 15000);
+    });
+
+    const interval = setInterval(fetchDados, 60000);
+    return () => { socket.disconnect(); clearInterval(interval); document.removeEventListener('click', unlockAudio); };
+  }, []);
+
+  useEffect(() => {
+    if (midias.length === 0) return;
+
+    const currentSlide = midias[currentSlideIndex];
+    
+    if (currentSlide.tipo === 'TEMPO' && !weather) {
+      fetchWeather(currentSlide.conteudo);
+    } else if (currentSlide.tipo === 'NOTICIA' && !news) {
+      fetchNews(currentSlide.conteudo);
+    }
+
+    const timer = setTimeout(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
+      setWeather(null); 
+      setNews(null); 
+    }, currentSlide.duracao * 1000);
+
+    return () => clearTimeout(timer);
+  }, [currentSlideIndex, midias]);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col overflow-hidden font-sans">
       
       {/* HEADER */}
       <header className="bg-blue-900 p-8 shadow-lg flex justify-between items-center z-10 border-b border-blue-800">
         <div className="flex items-center gap-6">
-          <div className="text-6xl">🏥</div>
+          <img src="/logo.png" alt="Essencial Saúde" className="h-24 object-contain bg-white rounded-lg p-2" />
           <div>
-            <h1 className="text-5xl font-bold tracking-wider">ESSENCIAL SAÚDE</h1>
+            <h1 className="text-4xl font-bold tracking-wider hidden">ESSENCIAL SAÚDE</h1>
             <p className="text-blue-300 text-xl uppercase tracking-widest mt-1">Painel de Atendimento</p>
           </div>
         </div>
@@ -204,6 +215,15 @@ export default function TvPage() {
                     src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} 
                     className="w-full h-full object-cover animate-fade-in"
                   />
+                )}
+                {midias[currentSlideIndex].tipo === 'VIDEO' && (
+                   <video 
+                     src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} 
+                     className="w-full h-full object-cover animate-fade-in"
+                     autoPlay 
+                     muted 
+                     loop
+                   />
                 )}
                 {midias[currentSlideIndex].tipo === 'TEMPO' && (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-800 animate-fade-in text-white p-6 text-center shadow-inner">

@@ -1,0 +1,31 @@
+
+> backend@1.0.0 dev
+> nodemon src/app.js
+
+[33m[nodemon] 3.1.11[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/app.js`[39m
+[dotenv@17.2.3] injecting env (13) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+🚀 Servidor na porta 5000
+Cliente conectado: nP7rCpts3-f9fJhMAAAB
+Cliente conectado: IUAc5dKRjhAm_g5KAAAD
+Cliente conectado: uVBhJJu7qKIraNxBAAAF
+Cliente conectado: tjy6GpbsX7TCg5lVAAAH
+Cliente conectado: 8MMbpjpVDQdzV-LHAAAJ
+Authenticated to WhatsApp
+✅ WhatsApp conectado com sucesso!
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting child process[39m
+[32m[nodemon] starting `node src/app.js`[39m
+[dotenv@17.2.3] injecting env (13) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+🚀 Servidor na porta 5000
+Cliente conectado: vwsnJyPFgb6g6YAFAAAC
+Cliente conectado: 8-mXF5ut-HIHPN_SAAAD
+Cliente conectado: UqbouPOa8F0Ix-OtAAAF
+Cliente conectado: _Sj-kXt6MloF_usBAAAI
+Cliente conectado: ykRzFmnufy4HjdclAAAJ
+✅ Conectado ao PostgreSQL

@@ -14,9 +14,10 @@ export default function AdminLayout({ children }) {
     { name: 'TV Espera', path: '/tv', icon: '📺' },
     { name: 'Equipe Médica', path: '/admin/medicos', icon: '📋' },
     { name: 'Admin Horários', path: '/admin/horarios', icon: '⏰' },
-    { name: 'Configurar TV', path: '/admin/tv', icon: '🖥️' },
-    { name: 'Admin WhatsApp', path: '/admin', icon: '💬' },
-  ];
+        {name: 'Configurar TV', path: '/admin/tv', icon: '🖥️' },
+        { name: 'Relatórios e Métricas', path: '/admin/metricas', icon: '📊' },
+        { name: 'Admin WhatsApp', path: '/admin', icon: '💬' },
+      ];
 
   // Não exibe layout na TV ou login (futuro)
   if (pathname === '/tv') return children;
@@ -25,10 +26,10 @@ export default function AdminLayout({ children }) {
     <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row">
       
       {/* SIDEBAR MOBILE / DESKTOP */}
-      <aside className="bg-blue-900 text-white w-full md:w-64 flex-shrink-0">
-        <div className="p-6 border-b border-blue-800">
-          <h1 className="text-2xl font-bold">Essencial Saúde</h1>
-          <p className="text-blue-300 text-xs">Sistema de Gestão</p>
+      <aside className="bg-gradient-to-b from-[#5b8dfd] to-[#4a7ecc] text-white w-full md:w-64 flex-shrink-0 shadow-xl">
+        <div className="p-6 border-b border-white/10">
+          <h1 className="text-2xl font-black tracking-tight">Essencial Saúde</h1>
+          <p className="text-blue-100 text-xs font-medium opacity-80">Sistema de Gestão Inteligente</p>
         </div>
         
         <nav className="p-4 space-y-2">
@@ -38,19 +39,19 @@ export default function AdminLayout({ children }) {
               <Link 
                 key={item.path} 
                 href={item.path}
-                className={`flex items-center space-x-3 p-3 rounded-lg transition duration-200
-                  ${isActive ? 'bg-blue-700 text-white shadow-lg' : 'text-blue-100 hover:bg-blue-800'}
+                className={`flex items-center space-x-3 p-3 rounded-xl transition duration-200 group
+                  ${isActive ? 'bg-white text-[#5b8dfd] shadow-lg font-bold' : 'text-blue-50 hover:bg-white/10 hover:text-white'}
                 `}
               >
-                <span className="text-xl">{item.icon}</span>
+                <span className={`text-xl ${isActive ? 'scale-110' : 'group-hover:scale-110 transition'}`}>{item.icon}</span>
                 <span className="font-medium">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-blue-800">
-          <Link href="/" className="flex items-center space-x-2 text-blue-300 hover:text-white text-sm">
+        <div className="p-4 mt-auto border-t border-white/10">
+          <Link href="/" className="flex items-center space-x-2 text-blue-100 hover:text-white text-sm font-medium transition">
             <span>⬅</span>
             <span>Voltar ao Site Público</span>
           </Link>

@@ -15,9 +15,18 @@ export default function PortalPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <header className="mb-10 text-center md:text-left">
-        <h1 className="text-4xl font-bold text-gray-800">Bem-vindo ao Portal</h1>
-        <p className="text-gray-600 mt-2 text-lg">Selecione o módulo que deseja acessar.</p>
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
+            <h1 className="text-lg font-bold text-blue-600">Agendamento</h1>
+          </div>
+          <button className="text-gray-500 hover:text-blue-600">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

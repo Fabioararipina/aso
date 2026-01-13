@@ -12,10 +12,10 @@ class Medico {
   }
 
   // Métodos de Grade de Horários
-  static async adicionarHorario(medico_id, dia_semana, hora_inicio, hora_fim, data_especifica) {
+  static async adicionarHorario(medico_id, dia_semana, hora_inicio, hora_fim, data_especifica, duracao_consulta) {
     const result = await db.query(
-      'INSERT INTO horarios_medicos (medico_id, dia_semana, hora_inicio, hora_fim, data_especifica) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [medico_id, dia_semana, hora_inicio, hora_fim, data_especifica || null]
+      'INSERT INTO horarios_medicos (medico_id, dia_semana, hora_inicio, hora_fim, data_especifica, duracao_consulta) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [medico_id, dia_semana, hora_inicio, hora_fim, data_especifica || null, duracao_consulta || 30]
     );
     return result.rows[0];
   }
@@ -72,6 +72,14 @@ class Medico {
 
     // 4. Remove o Médico
     await db.query('DELETE FROM medicos WHERE id = $1', [id]);
+  }
+
+  static async definirAtraso(id, minutos) {
+    const result = await db.query(
+      'UPDATE medicos SET atraso_minutos = $1 WHERE id = $2 RETURNING *',
+      [minutos, id]
+    );
+    return result.rows[0];
   }
 
   // Gera slots disponíveis para um dia específico

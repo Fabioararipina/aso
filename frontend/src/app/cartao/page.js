@@ -4,21 +4,17 @@ export default function CartaoPage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       
-      {/* HERO SECTION */}
-      <header className="bg-gradient-to-r from-blue-900 to-blue-700 text-white py-20 px-4 text-center relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('/pattern.png')]"></div>
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="mb-6 inline-block p-4 bg-white/10 rounded-full backdrop-blur-sm">
-            <span className="text-4xl">🌳</span> 
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight">
-            Cartão Essencial Saúde <br/>
-            <span className="text-blue-200 text-2xl md:text-4xl block mt-2">vs</span>
-            Plano Funerário
+      {/* Hero Section */}
+      <header className="bg-gradient-to-br from-green-600 to-green-800 text-white pb-20 pt-8 px-4 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
+        <div className="max-w-md mx-auto relative z-10 text-center">
+          <img src="/logo.png" alt="Essencial Saúde" className="h-20 mx-auto mb-6 bg-white p-2 rounded-xl shadow-lg" />
+          <span className="bg-green-500 bg-opacity-30 text-green-100 px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase mb-4 inline-block backdrop-blur-sm border border-green-400">
+            LANÇAMENTO
+          </span>
+          <h1 className="text-4xl font-black mb-4 leading-tight">
+            Sua saúde merece <br/>
+            <span className="text-green-200">ser prioridade.</span>
           </h1>
-          <p className="text-xl md:text-2xl text-blue-100 font-light max-w-2xl mx-auto">
-            "Escolha viver melhor. Escolha cuidar da sua saúde hoje."
-          </p>
         </div>
       </header>
 

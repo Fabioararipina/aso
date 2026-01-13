@@ -26,7 +26,7 @@ export default function AgendamentoWizard() {
   // Formulário Final
   const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', observacoes: '' });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   // Carregar Médicos no Início
   useEffect(() => {
@@ -79,8 +79,8 @@ export default function AgendamentoWizard() {
             className={`
               p-2 md:p-4 text-center cursor-pointer border rounded-lg transition-all duration-200
               ${!isSameMonth(day, monthStart) ? 'text-gray-300 bg-gray-50' : 'text-gray-800'}
-              ${isSameDay(day, selectedDate) ? 'bg-blue-600 text-white shadow-lg transform scale-105 border-blue-600' : 'hover:bg-blue-50'}
-              ${isToday(day) ? 'font-bold border-blue-300' : ''}
+              ${isSameDay(day, selectedDate) ? 'bg-[#5b8dfd] text-white shadow-lg transform scale-105 border-[#5b8dfd]' : 'hover:bg-blue-50'}
+              ${isToday(day) ? 'font-bold border-[#5b8dfd]/50' : ''}
               ${isDisabled ? 'opacity-30 cursor-not-allowed hover:bg-transparent' : ''}
             `}
             onClick={() => {
@@ -141,25 +141,91 @@ export default function AgendamentoWizard() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4">
-      
-      {/* HEADER DA PÁGINA */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-blue-900">Agende sua Consulta</h1>
-        <p className="text-gray-500">Siga os passos abaixo para marcar seu horário</p>
+  // --- RENDERIZAÇÃO DA LANDING PAGE (Cabeçalho Rico) ---
+  const renderHero = () => (
+    <div className="w-full bg-gradient-to-br from-[#71ca4f]/10 to-[#5b8dfd]/10 pb-12 mb-10 border-b border-[#71ca4f]/20">
+      <div className="max-w-5xl mx-auto px-4 text-center pt-8">
+        <img src="/logo.png" alt="Essencial Saúde" className="h-28 mx-auto mb-6" />
+        
+        <h1 className="text-4xl md:text-5xl font-black text-gray-800 mb-4 leading-tight">
+          Sua saúde merece <br/>
+          <span className="text-[#5b8dfd]">atendimento inteligente.</span>
+        </h1>
+        
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
+          A única clínica da região com <strong>Rastreador de Fila em Tempo Real</strong>. 
+          Agende online e saia de casa apenas quando chegar a sua vez.
+        </p>
+        
+        {/* Vantagens com Cores da Marca */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-left max-w-5xl mx-auto">
+          
+          {/* Card Exclusivo: FILA EM TEMPO REAL */}
+          <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-[#5b8dfd] flex flex-col justify-center relative overflow-hidden group">
+            <div className="absolute top-0 right-0 bg-[#5b8dfd] text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">EXCLUSIVO</div>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="bg-[#5b8dfd]/20 p-2 rounded-full text-[#5b8dfd]">🔴</div>
+              <p className="font-bold text-gray-800 leading-tight">Fila ao Vivo</p>
+            </div>
+            <p className="text-xs text-gray-500">Veja sua posição pelo celular e evite sala de espera.</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-3">
+            <div className="bg-[#71ca4f]/20 p-2 rounded-full text-[#71ca4f]">📱</div>
+            <div>
+              <p className="font-bold text-gray-800">100% Online</p>
+              <p className="text-xs text-gray-500">Agende em 1 minuto</p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-3">
+            <div className="bg-[#71ca4f]/20 p-2 rounded-full text-[#71ca4f]">⚡</div>
+            <div>
+              <p className="font-bold text-gray-800">Confirmação</p>
+              <p className="text-xs text-gray-500">Ticket no seu WhatsApp</p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-3">
+            <div className="bg-[#5b8dfd]/20 p-2 rounded-full text-[#5b8dfd]">📅</div>
+            <div>
+              <p className="font-bold text-gray-800">Agenda Aberta</p>
+              <p className="text-xs text-gray-500">Escolha seu horário</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <p className="text-sm font-bold text-[#71ca4f] uppercase tracking-widest mb-4">Escolha um especialista abaixo</p>
+          <div className="animate-bounce text-[#71ca4f] text-2xl">⬇</div>
+        </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center pb-12">
+      
+      {/* EXIBE HERO SOMENTE NO PASSO 1 */}
+      {step === 1 ? renderHero() : (
+        <div className="w-full bg-white shadow-sm py-4 mb-8 border-b border-[#71ca4f]/30">
+           <div className="max-w-4xl mx-auto px-4 flex items-center">
+             <img src="/logo.png" alt="Logo" className="h-10 mr-4" />
+             <span className="font-bold text-[#5b8dfd]">Agendamento Online</span>
+           </div>
+        </div>
+      )}
 
       {/* STEPS INDICATOR */}
       <div className="flex items-center justify-center space-x-4 mb-8">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
-        <div className={`w-12 h-1 bg-gray-200 ${step >= 2 ? 'bg-blue-600' : ''}`}></div>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
-        <div className={`w-12 h-1 bg-gray-200 ${step >= 3 ? 'bg-blue-600' : ''}`}></div>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>3</div>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm ${step >= 1 ? 'bg-[#71ca4f] text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
+        <div className={`w-12 h-1 rounded-full ${step >= 2 ? 'bg-[#71ca4f]' : 'bg-gray-200'}`}></div>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm ${step >= 2 ? 'bg-[#71ca4f] text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
+        <div className={`w-12 h-1 rounded-full ${step >= 3 ? 'bg-[#71ca4f]' : 'bg-gray-200'}`}></div>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm ${step >= 3 ? 'bg-[#71ca4f] text-white' : 'bg-gray-200 text-gray-500'}`}>3</div>
       </div>
 
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-4xl px-4">
         
         {/* STEP 1: ESCOLHER MÉDICO */}
         {step === 1 && (
@@ -168,24 +234,28 @@ export default function AgendamentoWizard() {
               <div 
                 key={medico.id}
                 onClick={() => { setSelectedMedico(medico); setStep(2); }}
-                className="bg-white p-6 rounded-2xl shadow hover:shadow-xl transition transform hover:-translate-y-1 cursor-pointer border border-transparent hover:border-blue-400 group"
+                className="bg-white p-6 rounded-2xl shadow hover:shadow-xl transition transform hover:-translate-y-1 cursor-pointer border border-transparent hover:border-[#5b8dfd] group relative overflow-hidden"
               >
-                <div className="flex justify-center mb-4">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#71ca4f] to-[#5b8dfd]"></div>
+                
+                <div className="flex justify-center mb-4 mt-2">
                   {medico.foto_path ? (
                     <img 
                       src={`${API_URL}/uploads/medicos/${medico.foto_path}`} 
                       alt={medico.nome} 
-                      className="w-24 h-24 rounded-full object-cover border-4 border-blue-50 group-hover:border-blue-200 shadow-sm"
+                      className="w-24 h-24 rounded-full object-cover border-4 border-[#5b8dfd]/10 group-hover:border-[#5b8dfd] shadow-sm transition-colors"
                     />
                   ) : (
-                    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-4xl text-blue-500">
+                    <div className="w-24 h-24 bg-[#5b8dfd]/10 rounded-full flex items-center justify-center text-4xl text-[#5b8dfd]">
                       👨‍⚕️
                     </div>
                   )}
                 </div>
                 <h3 className="font-bold text-xl text-gray-800 text-center">{medico.nome}</h3>
-                <p className="text-blue-500 font-medium text-center">{medico.especialidade || 'Clínico Geral'}</p>
-                <p className="text-gray-400 text-sm mt-4 text-center">Toque para ver agenda</p>
+                <p className="text-[#5b8dfd] font-medium text-center">{medico.especialidade || 'Clínico Geral'}</p>
+                <button className="w-full mt-4 bg-[#71ca4f]/10 text-[#71ca4f] font-bold py-2 rounded-lg group-hover:bg-[#71ca4f] group-hover:text-white transition">
+                  Ver Agenda
+                </button>
               </div>
             ))}
           </div>
@@ -196,7 +266,7 @@ export default function AgendamentoWizard() {
           <div className="grid md:grid-cols-2 gap-8 animate-fade-in-up">
             <div>
               <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-                <button onClick={() => setStep(1)} className="mr-2 text-blue-500 hover:underline">← Voltar</button>
+                <button onClick={() => setStep(1)} className="mr-2 text-[#5b8dfd] hover:underline">← Voltar</button>
                 Escolha a Data
               </h3>
               {renderCalendar()}
@@ -208,7 +278,7 @@ export default function AgendamentoWizard() {
               {!selectedDate ? (
                 <p className="text-gray-400 text-center py-10">Selecione um dia no calendário para ver os horários.</p>
               ) : loading ? (
-                <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
+                <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5b8dfd]"></div></div>
               ) : horariosDisponiveis.length === 0 ? (
                 <div className="text-center py-10 bg-yellow-50 rounded-lg">
                   <p className="text-yellow-700 font-bold">Sem vagas neste dia.</p>
@@ -222,7 +292,7 @@ export default function AgendamentoWizard() {
                       onClick={() => { setSelectedHorario(hora); setStep(3); }}
                       className={`
                         py-2 px-4 rounded-lg font-bold text-sm transition
-                        ${selectedHorario === hora ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}
+                        ${selectedHorario === hora ? 'bg-[#5b8dfd] text-white shadow-md' : 'bg-blue-50 text-[#5b8dfd] hover:bg-blue-100'}
                       `}
                     >
                       {hora}
@@ -236,17 +306,17 @@ export default function AgendamentoWizard() {
 
         {/* STEP 3: DADOS FINAIS */}
         {step === 3 && (
-          <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg animate-fade-in-up">
+          <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg animate-fade-in-up border-t-4 border-[#71ca4f]">
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Quase lá!</h3>
             <p className="text-gray-600 mb-6">Confirme seus dados para finalizar o agendamento.</p>
 
-            <div className="bg-blue-50 p-4 rounded-lg mb-6 flex items-center justify-between">
+            <div className="bg-[#5b8dfd]/10 p-4 rounded-lg mb-6 flex items-center justify-between border border-[#5b8dfd]/20">
               <div>
-                <p className="text-sm text-blue-800 font-bold uppercase">Resumo</p>
+                <p className="text-sm text-[#5b8dfd] font-bold uppercase">Resumo</p>
                 <p className="font-bold text-gray-800">{selectedMedico?.nome}</p>
                 <p className="text-gray-600">{selectedDate && format(selectedDate, 'dd/MM/yyyy')} às {selectedHorario}</p>
               </div>
-              <button onClick={() => setStep(2)} className="text-sm text-blue-600 underline font-bold">Alterar</button>
+              <button onClick={() => setStep(2)} className="text-sm text-[#5b8dfd] underline font-bold">Alterar</button>
             </div>
 
             <form onSubmit={handleFinalSubmit} className="space-y-4">
@@ -254,7 +324,7 @@ export default function AgendamentoWizard() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Seu Nome Completo</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5b8dfd] outline-none"
                   value={form.nome}
                   onChange={e => setForm({...form, nome: e.target.value})}
                   required
@@ -265,7 +335,7 @@ export default function AgendamentoWizard() {
                 <input 
                   type="text" 
                   placeholder="(00) 00000-0000"
-                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5b8dfd] outline-none"
                   value={form.whatsapp}
                   onChange={e => setForm({...form, whatsapp: e.target.value})}
                   required
@@ -274,7 +344,7 @@ export default function AgendamentoWizard() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Observações (Opcional)</label>
                 <textarea 
-                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5b8dfd] outline-none"
                   rows="2"
                   value={form.observacoes}
                   onChange={e => setForm({...form, observacoes: e.target.value})}
@@ -283,7 +353,7 @@ export default function AgendamentoWizard() {
 
               <button 
                 type="submit" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105 mt-4"
+                className="w-full bg-[#71ca4f] hover:bg-[#65b546] text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105 mt-4"
               >
                 CONFIRMAR AGENDAMENTO
               </button>

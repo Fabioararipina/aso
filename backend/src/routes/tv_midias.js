@@ -20,6 +20,8 @@ const uploadTv = multer({ storage: storage });
 
 router.get('/', TvMidiaController.listar);
 router.post('/', uploadTv.single('arquivo'), TvMidiaController.criar);
+router.put('/:id', uploadTv.single('arquivo'), TvMidiaController.atualizar);
+router.put('/:id/ordem', TvMidiaController.atualizarOrdem);
 router.delete('/:id', TvMidiaController.excluir);
 
 module.exports = router;

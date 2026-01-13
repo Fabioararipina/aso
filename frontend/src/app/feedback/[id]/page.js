@@ -11,7 +11,7 @@ export default function FeedbackPage({ params }) {
   const [comentario, setComentario] = useState('');
   const [enviado, setEnviado] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   const enviarFeedback = async () => {
     if (nota === null) return alert('Por favor, selecione uma nota.');

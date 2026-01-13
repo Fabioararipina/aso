@@ -9,10 +9,10 @@ export default function AdminHorariosPage() {
   const [horarios, setHorarios] = useState([]);
   
   const [tipoAgendamento, setTipoAgendamento] = useState('recorrente'); // 'recorrente' ou 'data'
-  const [form, setForm] = useState({ dia_semana: '1', data_especifica: '', hora_inicio: '08:00', hora_fim: '12:00' });
+  const [form, setForm] = useState({ dia_semana: '1', data_especifica: '', hora_inicio: '08:00', hora_fim: '12:00', duracao: '30' });
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     axios.get(`${API_URL}/api/medicos`).then(res => setMedicos(res.data));
@@ -146,6 +146,19 @@ export default function AdminHorariosPage() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm text-gray-600">Duração (minutos)</label>
+                  <input 
+                    type="number" 
+                    min="5"
+                    step="5"
+                    className="w-full p-2 border rounded text-gray-900"
+                    value={form.duracao}
+                    onChange={e => setForm({...form, duracao: e.target.value})}
+                  />
+                </div>
+
                 <button className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">
                   ADICIONAR
                 </button>
@@ -170,6 +183,7 @@ export default function AdminHorariosPage() {
                           <span className="font-bold text-gray-800 block">🔄 {dias[h.dia_semana]}</span>
                         )}
                         <span className="text-sm text-gray-600">{h.hora_inicio.slice(0,5)} às {h.hora_fim.slice(0,5)}</span>
+                        <span className="text-xs text-blue-600 block mt-1">⏱️ Intervalo: {h.duracao_consulta || 30} min</span>
                       </div>
                       <button 
                         onClick={() => handleRemove(h.id)}

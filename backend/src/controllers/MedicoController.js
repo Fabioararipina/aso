@@ -1,4 +1,6 @@
 ﻿const Medico = require('../models/Medico');
+const Agendamento = require('../models/Agendamento');
+const whatsappService = require('../services/whatsapp/whatsappService');
 
 class MedicoController {
   static async listar(req, res) {
@@ -10,11 +12,54 @@ class MedicoController {
     }
   }
 
+  static async notificarAtraso(req, res) {
+    try {
+      const { id } = req.params; // medico_id
+      const { minutos } = req.body;
+      
+      // 1. Atualiza no banco para refletir na TV
+      await Medico.definirAtraso(id, minutos);
+
+      // 2. Notifica via WhatsApp
+      const hoje = new Date().toISOString().split('T')[0];
+      const agendamentos = await Agendamento.listarFilaParaAtraso(id, hoje);
+
+      let cont = 0;
+      for (const ag of agendamentos) {
+        const linkFila = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${ag.id}`;
+        
+        const msg = `
+⚠️ *AVISO DE ATRASO*
+-------------------------------
+Olá, *${ag.paciente_nome}*.
+Houve um imprevisto na agenda.
+
+👨‍⚕️ *Profissional:* Dr(a). ${ag.medico_nome}
+⏱️ *Atraso Estimado:* ${minutos} minutos
+
+Agradecemos a compreensão.
+Sua posição na fila continua garantida.
+
+🔗 *Acompanhe:*
+${linkFila}
+`;
+        
+        await whatsappService.enviarMensagem(ag.whatsapp, msg);
+        cont++;
+      }
+
+      res.json({ sucesso: true, mensagens_enviadas: cont });
+    } catch (error) {
+      console.error('Erro ao notificar atraso:', error);
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
   static async adicionarHorario(req, res) {
     try {
       const { id } = req.params; // medico_id
-      const { dia_semana, hora_inicio, hora_fim, data_especifica } = req.body;
-      const horario = await Medico.adicionarHorario(id, dia_semana, hora_inicio, hora_fim, data_especifica);
+      const { dia_semana, hora_inicio, hora_fim, data_especifica, duracao } = req.body;
+      const horario = await Medico.adicionarHorario(id, dia_semana, hora_inicio, hora_fim, data_especifica, duracao);
       res.json(horario);
     } catch (error) {
       res.status(500).json({ erro: error.message });

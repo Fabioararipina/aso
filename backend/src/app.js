@@ -37,6 +37,7 @@ require('./services/confirmacao/confirmacaoService');
 app.use('/api/medicos', require('./routes/medicos'));
 app.use('/api/agendamentos', require('./routes/agendamentos'));
 app.use('/api/tv-midias', require('./routes/tv_midias'));
+app.use('/api/metricas', require('./routes/metricas'));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'API Rodando' });

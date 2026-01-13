@@ -11,7 +11,7 @@ export default function AdminPage() {
   const [logs, setLogs] = useState([]);
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     const socket = io(API_URL);

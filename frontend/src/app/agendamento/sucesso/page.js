@@ -12,7 +12,7 @@ export default function SucessoPage() {
   const [loading, setLoading] = useState(true);
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
   useEffect(() => {
     if (id) {
@@ -40,8 +40,8 @@ export default function SucessoPage() {
         
         {/* HEADER TICKET */}
         <div className="bg-blue-600 p-6 text-center text-white relative">
-          <div className="w-16 h-16 bg-white text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg">
-            ✓
+          <div className="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold">Solicitação Recebida!</h1>
           <p className="text-blue-100 text-sm mt-1">Aguardando confirmação</p>

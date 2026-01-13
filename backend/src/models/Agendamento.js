@@ -27,12 +27,12 @@ class Agendamento {
   }
 
   static async listarParaTv(data) {
-    // Busca agendamentos do dia + Média de tempo do médico + Foto
+    // Busca agendamentos do dia + Média de tempo do médico + Foto + ATRASO
     const query = `
       SELECT 
         a.id, a.horario, a.status, a.inicio_atendimento,
         p.nome as paciente_nome, 
-        m.id as medico_id, m.nome as medico_nome, m.foto_path,
+        m.id as medico_id, m.nome as medico_nome, m.foto_path, m.atraso_minutos,
         (
           SELECT AVG(EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60)::INTEGER
           FROM agendamentos a2
@@ -91,20 +91,21 @@ class Agendamento {
   static async calcularTempoMedio(medico_id) {
     // Pega os últimos 10 atendimentos concluídos deste médico
     const query = `
-      SELECT AVG(EXTRACT(EPOCH FROM (atualizado_em - inicio_atendimento))/60)::INTEGER as media_minutos
-      FROM agendamentos 
-      WHERE medico_id = $1 
-      AND status = 'CONCLUIDO' 
-      AND inicio_atendimento IS NOT NULL
-      ORDER BY data_consulta DESC, horario DESC
-      LIMIT 10
+      SELECT AVG(duracao)::INTEGER as media_minutos FROM (
+        SELECT EXTRACT(EPOCH FROM (atualizado_em - inicio_atendimento))/60 as duracao
+        FROM agendamentos 
+        WHERE medico_id = $1 
+        AND status = 'CONCLUIDO' 
+        AND inicio_atendimento IS NOT NULL
+        ORDER BY data_consulta DESC, horario DESC
+        LIMIT 10
+      ) as ultimos
     `;
     const result = await db.query(query, [medico_id]);
     return result.rows[0]?.media_minutos || 20; // Default 20 min
   }
 
-  static async buscarProximoDaFila(medico_id, data) {
-    // Busca o próximo paciente (CONFIRMADO ou PRESENTE) ordenado por horário
+  static async buscarProximosDaFila(medico_id, data, limite = 1) {
     const query = `
       SELECT a.*, p.nome as paciente_nome, p.whatsapp 
       FROM agendamentos a
@@ -113,10 +114,44 @@ class Agendamento {
       AND a.data_consulta = $2 
       AND a.status IN ('CONFIRMADO', 'PRESENTE')
       ORDER BY a.horario ASC
-      LIMIT 1
+      LIMIT $3
     `;
-    const result = await db.query(query, [medico_id, data]);
-    return result.rows[0];
+    const result = await db.query(query, [medico_id, data, limite]);
+    return result.rows;
+  }
+
+  static async buscarPosicaoFila(id) {
+    try {
+      // 1. Busca dados do próprio agendamento
+      const agendamento = await this.buscarPorId(id);
+      if (!agendamento) return null;
+
+      // 2. Busca quantos estão na frente dele
+      const queryPosicao = `
+        SELECT COUNT(*)::int as qtd 
+        FROM agendamentos 
+        WHERE medico_id = $1 
+        AND data_consulta = $2 
+        AND status IN ('CONFIRMADO', 'PRESENTE', 'EM_ATENDIMENTO')
+        AND horario < $3
+      `;
+      const resultPosicao = await db.query(queryPosicao, [agendamento.medico_id, agendamento.data_consulta, agendamento.horario]);
+      const posicao = resultPosicao.rows[0].qtd || 0;
+
+      // 3. Busca Atraso do Médico
+      const medicoResult = await db.query('SELECT atraso_minutos FROM medicos WHERE id = $1', [agendamento.medico_id]);
+      const atraso = medicoResult.rows[0]?.atraso_minutos || 0;
+
+      return {
+        ...agendamento,
+        posicao,
+        atraso,
+        previsao: agendamento.horario.slice(0, 5) // Simplificado por enquanto
+      };
+    } catch (error) {
+      console.error('[ERRO CRÍTICO SIMPLIFICADO] buscarPosicaoFila:', error);
+      throw error;
+    }
   }
 
   static async buscarPorId(id) {
@@ -124,7 +159,7 @@ class Agendamento {
       'SELECT a.*, p.nome as paciente_nome, m.nome as medico_nome, m.especialidade, p.whatsapp FROM agendamentos a JOIN pacientes p ON a.paciente_id = p.id JOIN medicos m ON a.medico_id = m.id WHERE a.id = $1',
       [id]
     );
-    return result.rows[0];
+    return result.rows[0]; // Retorna undefined se não achar
   }
 
   static async salvarProntuario(id, path) {
@@ -141,6 +176,31 @@ class Agendamento {
       [nota, comentario, id]
     );
     return result.rows[0];
+  }
+
+  static async listarFilaParaAtraso(medico_id, data) {
+    const result = await db.query(
+      `SELECT a.*, p.nome as paciente_nome, p.whatsapp, m.nome as medico_nome 
+       FROM agendamentos a 
+       JOIN pacientes p ON a.paciente_id = p.id 
+       JOIN medicos m ON a.medico_id = m.id 
+       WHERE a.medico_id = $1 AND a.data_consulta = $2 
+       AND a.status IN ('CONFIRMADO', 'PRESENTE')`,
+      [medico_id, data]
+    );
+    return result.rows;
+  }
+
+  static async listarHistorico(paciente_id) {
+    const result = await db.query(
+      `SELECT a.*, m.nome as medico_nome, m.especialidade
+       FROM agendamentos a
+       JOIN medicos m ON a.medico_id = m.id
+       WHERE a.paciente_id = $1 AND a.status = 'CONCLUIDO'
+       ORDER BY a.data_consulta DESC`,
+      [paciente_id]
+    );
+    return result.rows;
   }
 }
 

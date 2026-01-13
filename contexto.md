@@ -44,6 +44,7 @@
 - [x] CRUD completo de Médicos com upload de fotos e CRM obrigatório.
 - [x] Exclusão em cascata (limpa agenda ao remover médico).
 - [x] Edição de dados e troca de fotos.
+- [x] Configuração de intervalo (duração) personalizado por turno de atendimento.
 
 ### 2. Agendamento Inteligente (Híbrido) ✅
 - [x] Suporte a Grade Recorrente (Semanal) e Datas Específicas.
@@ -84,5 +85,5 @@
     *   Revisão de textos e testes de carga.
 
 ---
-*Última atualização: 11/01/2026 às 23:55*
+*Última atualização: 13/01/2026 às 09:00*
 

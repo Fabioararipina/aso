@@ -5,10 +5,19 @@ class WhatsAppService {
   constructor() {
     this.client = new Client({
       authStrategy: new LocalAuth({
-        dataPath: './.wwebjs_auth' // Salva a sessão para não precisar ler o QR toda hora
+        dataPath: './.wwebjs_auth'
       }),
       puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        headless: true,
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu'
+        ]
       }
     });
 
