@@ -33,27 +33,27 @@ class Medico {
     await db.query('DELETE FROM horarios_medicos WHERE id = $1', [id]);
   }
 
-  static async criar(nome, especialidade, foto_path, crm) {
+  static async criar(nome, especialidade, foto_path, crm, valor_consulta) {
     const result = await db.query(
-      'INSERT INTO medicos (nome, especialidade, foto_path, crm) VALUES ($1, $2, $3, $4) RETURNING *',
-      [nome, especialidade, foto_path, crm || '00000'] 
+      'INSERT INTO medicos (nome, especialidade, foto_path, crm, valor_consulta) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [nome, especialidade, foto_path, crm || '00000', valor_consulta || 150.00] 
     );
     return result.rows[0];
   }
 
-  static async atualizar(id, nome, especialidade, crm, foto_path) {
-    let query = 'UPDATE medicos SET nome = $1, especialidade = $2, crm = $3';
-    const params = [nome, especialidade, crm];
+  static async atualizar(id, nome, especialidade, crm, foto_path, valor_consulta) {
+    let query = 'UPDATE medicos SET nome = $1, especialidade = $2, crm = $3, valor_consulta = $4';
+    const params = [nome, especialidade, crm, valor_consulta || 150.00];
     
     // Se enviou foto nova, atualiza. Se não, mantém a antiga.
     if (foto_path) {
-      query += ', foto_path = $4';
+      query += ', foto_path = $5';
       params.push(foto_path);
+      params.push(id); // ID vira o $6
+      query += ' WHERE id = $6 RETURNING *';
+    } else {
       params.push(id); // ID vira o $5
       query += ' WHERE id = $5 RETURNING *';
-    } else {
-      params.push(id); // ID vira o $4
-      query += ' WHERE id = $4 RETURNING *';
     }
 
     const result = await db.query(query, params);

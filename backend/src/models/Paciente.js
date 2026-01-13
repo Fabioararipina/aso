@@ -14,6 +14,10 @@ class Paciente {
     const result = await db.query('SELECT * FROM pacientes WHERE whatsapp = $1', [whatsapp]);
     return result.rows[0];
   }
+  static async buscarPorId(id) {
+    const result = await db.query('SELECT * FROM pacientes WHERE id = $1', [id]);
+    return result.rows[0];
+  }
 }
 
 module.exports = Paciente;

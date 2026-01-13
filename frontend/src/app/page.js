@@ -24,7 +24,7 @@ export default function AgendamentoWizard() {
   const [selectedHorario, setSelectedHorario] = useState(null);
   
   // Formulário Final
-  const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', observacoes: '' });
+  const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', observacoes: '', tipo_consulta: 'PRIMEIRA_VEZ' });
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
 
@@ -130,7 +130,9 @@ export default function AgendamentoWizard() {
         ...form,
         medico_id: selectedMedico.id,
         data_consulta: format(selectedDate, 'yyyy-MM-dd'),
-        horario: selectedHorario
+        horario: selectedHorario,
+        // Envia valor zerado se for retorno, ou o valor do médico se for consulta
+        valor: form.tipo_consulta === 'RETORNO' ? 0 : null 
       };
 
       const res = await axios.post(`${API_URL}/api/agendamentos`, payload);
@@ -320,6 +322,38 @@ export default function AgendamentoWizard() {
             </div>
 
             <form onSubmit={handleFinalSubmit} className="space-y-4">
+              
+              {/* Seleção de Tipo */}
+              <div className="flex gap-4 mb-4">
+                <label className={`flex-1 border p-3 rounded-xl flex items-center gap-3 cursor-pointer transition ${form.tipo_consulta === 'PRIMEIRA_VEZ' ? 'border-[#5b8dfd] bg-blue-50 ring-1 ring-[#5b8dfd]' : 'border-gray-200'}`}>
+                  <input 
+                    type="radio" 
+                    name="tipo" 
+                    className="w-4 h-4 text-[#5b8dfd]"
+                    checked={form.tipo_consulta === 'PRIMEIRA_VEZ'}
+                    onChange={() => setForm({...form, tipo_consulta: 'PRIMEIRA_VEZ'})}
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-700 text-sm">Primeira Vez / Consulta</span>
+                    <span className="text-xs text-gray-500">Gera cobrança</span>
+                  </div>
+                </label>
+
+                <label className={`flex-1 border p-3 rounded-xl flex items-center gap-3 cursor-pointer transition ${form.tipo_consulta === 'RETORNO' ? 'border-[#71ca4f] bg-green-50 ring-1 ring-[#71ca4f]' : 'border-gray-200'}`}>
+                  <input 
+                    type="radio" 
+                    name="tipo" 
+                    className="w-4 h-4 text-[#71ca4f]"
+                    checked={form.tipo_consulta === 'RETORNO'}
+                    onChange={() => setForm({...form, tipo_consulta: 'RETORNO'})}
+                  />
+                  <div>
+                    <span className="block font-bold text-gray-700 text-sm">Retorno</span>
+                    <span className="text-xs text-gray-500">Gratuito (se no prazo)</span>
+                  </div>
+                </label>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Seu Nome Completo</label>
                 <input 
@@ -338,6 +372,17 @@ export default function AgendamentoWizard() {
                   className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5b8dfd] outline-none"
                   value={form.whatsapp}
                   onChange={e => setForm({...form, whatsapp: e.target.value})}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Seu E-mail</label>
+                <input 
+                  type="email" 
+                  placeholder="exemplo@email.com"
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#5b8dfd] outline-none"
+                  value={form.email}
+                  onChange={e => setForm({...form, email: e.target.value})}
                   required
                 />
               </div>

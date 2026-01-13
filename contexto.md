@@ -1,89 +1,49 @@
 # Contexto do Projeto - Essencial Saúde
 
-## Configurações Globais
-- **Idioma:** PT-BR (Português Brasil)
-- **Regra de Ouro:** Sempre pedir autorização antes de criar ou modificar qualquer arquivo.
-- **Transparência:** Informar detalhadamente o que pretendo fazer antes de executar.
+## 🌟 Identidade Visual & UX (Concluído)
+- **Cores Oficiais:** 
+    - 🟢 Verde Principal: `#71ca4f`
+    - 🔵 Azul Principal: `#5b8dfd`
+- **Landing Page:** Página inicial de alta conversão, com fluxo "Vitrine" -> "Calendário".
+- **Fila em Tempo Real:** Página exclusiva (`/agendamento/fila/[id]`) onde o paciente vê sua posição e previsão de atendimento ao vivo.
+- **Mensageria:** WhatsApp 100% padronizado com tickets digitais visuais (emojis, formatação).
 
-## Status do Desenvolvimento
+## 🚀 Funcionalidades Operacionais (Concluído)
+- **Agendamento Inteligente:** Grade flexível (15 min), suporte a horários quebrados e validação de "Retorno" (gratuito) vs "Consulta" (pago).
+- **Painel de Gestão (Admin):**
+    - Controle de Equipe e Horários.
+    - Configuração de Valor de Consulta por Médico.
+    - **Dashboard de Métricas (BI):** Evolução diária, tipos de pacientes, especialidades e performance da equipe.
+- **Recepção & Médico:** Fluxo completo de check-in, atendimento e finalização com envio de prontuário digital.
 
-### Ferramentas de Desenvolvimento ✅
-- [x] Backend: Instalado `nodemon` e configurado script `npm run dev` para reinicialização automática.
+## 💳 Integração Mercado Pago (Status: 90% - Bloqueio de Ambiente)
+- **O que já fizemos:**
+    - Estrutura de banco de dados para pagamentos.
+    - Backend configurado com SDK oficial e credenciais de produção.
+    - Frontend com tela de sucesso dinâmica: exibe QR Code PIX ou botão para Checkout Pro.
+    - Lógica de Webhook pronta para baixar pagamentos automaticamente.
+- **Onde parou (Bloqueio):** 
+    - Erro `auto_return invalid` e `QR Code Inválido` ao tentar pagar.
+    - **Causa Raiz:** O Mercado Pago rejeita URLs locais (`http://192.168...` ou `localhost`) e bloqueia pagamentos feitos pelo próprio titular da conta (mesmo CPF).
+    - **Solução Paliativa Tentada:** Usar URLs públicas (Google) para enganar a validação, mas o bloqueio de segurança da conta persiste.
 
-### 1. Painel Recepção ✅
-... (Já concluído)
+## 📝 Próximos Passos (Plano de Ação Pós-Deploy)
 
-### 2. Painel Médico ✅
-- [x] Check-in, Chamar Próximo, Concluir.
-- [x] Envio de Prontuário PDF via WhatsApp ao finalizar.
+A prioridade absoluta agora é tirar o sistema do ambiente local e colocá-lo na internet. Isso resolverá os problemas de pagamento e permitirá o uso real.
 
-### 3. TV Sala de Espera ✅
-- [x] Chamada visual e sonora (TTS) em tempo real.
+1.  **DEPLOY EM PRODUÇÃO (Colocar Online) 🌍**
+    *   Subir o Frontend e Backend para um servidor real (VPS ou PaaS).
+    *   Configurar domínio/subdomínio seguro (`https://agendamento.suaclinica.com.br`).
+    *   *Por que:* O Mercado Pago exige HTTPS válido para processar pagamentos e enviar Webhooks.
 
-### 4. WhatsApp (whatsapp-web.js) ✅
-- [x] Conexão via QR Code no Painel Admin.
-- [x] Mensagens automáticas de Confirmação e Chamada.
+2.  **REATIVAR PAGAMENTOS ✅**
+    *   Atualizar o arquivo `.env` no servidor com as URLs reais (`https://...`).
+    *   Testar o fluxo de pagamento novamente (agora funcionará pois o ambiente é válido).
+    *   Configurar o Webhook no painel do Mercado Pago apontando para o servidor.
 
-### 5. NPS Automatizado ✅
-- [x] Tarefa agendada (Cron) para enviar pesquisa 2h após consulta.
-- [x] Página de feedback para o paciente dar nota 0-10.
-- [x] Registro de notas e comentários no banco.
-
-### 6. Sistema de Estimativas ✅
-- [x] Cálculo de tempo médio por médico.
-- [x] Aviso WhatsApp para o próximo da fila ("Prepare-se").
-- [x] Registro exato do início do atendimento.
-
-### 7. Follow-up 15 Dias ✅
-- [x] Cron Job diário (09:00).
-- [x] Mensagem automática de reconexão.
-
-## Status do Desenvolvimento (REFATORAÇÃO MAIOR - FASE 2) - CONCLUÍDO ✅
-
-### 1. Gestão de Equipe & Médicos ✅
-- [x] CRUD completo de Médicos com upload de fotos e CRM obrigatório.
-- [x] Exclusão em cascata (limpa agenda ao remover médico).
-- [x] Edição de dados e troca de fotos.
-- [x] Configuração de intervalo (duração) personalizado por turno de atendimento.
-
-### 2. Agendamento Inteligente (Híbrido) ✅
-- [x] Suporte a Grade Recorrente (Semanal) e Datas Específicas.
-- [x] Prioridade para datas exatas na busca de vagas.
-- [x] Wizard de 3 Passos: Seleção de Médico -> Calendário Visual -> Dados Finais.
-- [x] Correção de Timezone (Fuso Horário) no calendário.
-
-### 3. Recepção: Centro de Comando ✅
-- [x] Calendário Visual Diário (Day View) com colunas por médico.
-- [x] Status coloridos: Pendente, Confirmado, Presente, Em Atendimento, Concluído.
-- [x] Agendamento Balcão: Criação rápida de pacientes direto no calendário.
-- [x] Check-in (Marcar Chegada) simplificado.
-
-### 4. TV Dashboard 2.0 (Mídia Indoor) ✅
-- [x] Painel de Atendimento completo com nomes gigantes para visibilidade.
-- [x] Cálculo automático de Previsão de Espera cumulativa por médico.
-- [x] Carrossel Multimídia Dinâmico:
-    - [x] Gestão de Slides no Admin.
-    - [x] Slide de Previsão do Tempo (Open-Meteo) com detalhes (vento, umidade, min/max).
-    - [x] Slide de Notícias RSS (G1 Saúde) em tempo real.
-- [x] Chamada Visual e Sonora (TTS) com foto do médico no overlay.
-
-### 5. Marketing & Retenção ✅
-- [x] Landing Page do Cartão Essencial Saúde (`/cartao`).
-- [x] Ticket Digital rico na tela de sucesso.
-- [x] Sistema de Indicação Viral ("Member Get Member") via WhatsApp.
-- [x] Robô de Cobrança: Mensagens de hora em hora para pendentes e auto-cancelamento após 4h.
+3.  **AJUSTES FINAIS DE CHECKOUT 🛠️**
+    *   Se o PIX Transparente continuar burocrático, migrar definitivamente para o **Checkout Pro** (redirecionamento), que é infalível e aceita tudo.
+    *   Validar o retorno automático (tela verde) após o pagamento.
 
 ---
-## Próximas Tarefas (Amanhã)
-
-1.  **INTEGRAÇÃO MERCADO PAGO:**
-    *   Botão de pagamento no Ticket Digital.
-    *   Webhook para confirmação automática via PIX/Cartão.
-2.  **AJUSTES MÉDICO:**
-    *   Botão para informar atraso e recalcular fila.
-3.  **POLIMENTO FINAL:**
-    *   Revisão de textos e testes de carga.
-
----
-*Última atualização: 13/01/2026 às 09:00*
-
+*Última atualização: 13/01/2026 às 13:10 - Sistema pronto para Deploy*

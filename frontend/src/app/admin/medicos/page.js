@@ -10,6 +10,7 @@ export default function AdminMedicosPage() {
   const [nome, setNome] = useState('');
   const [crm, setCrm] = useState('');
   const [especialidade, setEspecialidade] = useState('');
+  const [valor_consulta, setValorConsulta] = useState('150.00');
   const [foto, setFoto] = useState(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
@@ -36,6 +37,7 @@ export default function AdminMedicosPage() {
     setNome(medico.nome);
     setCrm(medico.crm);
     setEspecialidade(medico.especialidade);
+    setValorConsulta(medico.valor_consulta || '150.00');
     setFoto(null); // Reseta o input de arquivo
     window.scrollTo({ top: 0, behavior: 'smooth' }); // Sobe para o form
   };
@@ -45,6 +47,7 @@ export default function AdminMedicosPage() {
     setNome('');
     setCrm('');
     setEspecialidade('');
+    setValorConsulta('150.00');
     setFoto(null);
   };
 
@@ -56,6 +59,7 @@ export default function AdminMedicosPage() {
     formData.append('nome', nome);
     formData.append('crm', crm);
     formData.append('especialidade', especialidade);
+    formData.append('valor_consulta', valor_consulta);
     if (foto) {
       formData.append('foto', foto);
     }
@@ -146,13 +150,24 @@ export default function AdminMedicosPage() {
                 <label className="block text-sm font-semibold text-gray-600 mb-1">Especialidade</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 border rounded-lg text-gray-900 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border rounded-lg text-gray-900 outline-none focus:ring-2 focus:ring-[#5b8dfd]"
                   placeholder="Ex: Cardiologista"
                   value={especialidade}
                   onChange={e => setEspecialidade(e.target.value)}
                 />
               </div>
-              <button className={`w-full text-white py-3 rounded-lg font-bold transition ${editingId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-1">Valor da Consulta (R$)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  className="w-full p-3 border rounded-lg text-gray-900 outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                  placeholder="Ex: 150.00"
+                  value={valor_consulta}
+                  onChange={e => setValorConsulta(e.target.value)}
+                />
+              </div>
+              <button className={`w-full text-white py-3 rounded-lg font-bold transition ${editingId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-[#71ca4f] hover:bg-[#65b546]'}`}>
                 {editingId ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR'}
               </button>
             </form>
@@ -191,9 +206,11 @@ export default function AdminMedicosPage() {
                       <div>
                         <span className="font-bold text-gray-800 block">{m.nome}</span>
                         <div className="flex items-center space-x-2 text-sm">
-                          <span className="text-blue-600 font-medium">{m.especialidade}</span>
+                          <span className="text-[#5b8dfd] font-medium">{m.especialidade}</span>
                           <span className="text-gray-400">•</span>
                           <span className="text-gray-500">CRM {m.crm}</span>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-emerald-600 font-bold">R$ {parseFloat(m.valor_consulta || 0).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>

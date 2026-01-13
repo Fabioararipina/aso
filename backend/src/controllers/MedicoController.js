@@ -109,10 +109,10 @@ ${linkFila}
       console.log('Body:', req.body);
       console.log('File:', req.file);
 
-      const { nome, especialidade, crm } = req.body;
+      const { nome, especialidade, crm, valor_consulta } = req.body;
       const foto_path = req.file ? req.file.filename : null; 
       
-      const medico = await Medico.criar(nome, especialidade, foto_path, crm);
+      const medico = await Medico.criar(nome, especialidade, foto_path, crm, valor_consulta);
       console.log('Médico criado com sucesso:', medico);
       res.json(medico);
     } catch (error) {
@@ -124,10 +124,10 @@ ${linkFila}
   static async atualizar(req, res) {
     try {
       const { id } = req.params;
-      const { nome, especialidade, crm } = req.body;
+      const { nome, especialidade, crm, valor_consulta } = req.body;
       const foto_path = req.file ? req.file.filename : null;
       
-      const medico = await Medico.atualizar(id, nome, especialidade, crm, foto_path);
+      const medico = await Medico.atualizar(id, nome, especialidade, crm, foto_path, valor_consulta);
       res.json(medico);
     } catch (error) {
       res.status(500).json({ erro: error.message });

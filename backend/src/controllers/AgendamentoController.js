@@ -10,6 +10,23 @@ class AgendamentoController {
       let paciente = await Paciente.buscarPorWhatsapp(whatsapp);
       if (!paciente) {
         paciente = await Paciente.criar({ nome, whatsapp, email });
+      } else if (email && !paciente.email) {
+        // Se o paciente já existe mas não tinha email, atualiza (opcional, mas bom pra garantir)
+        // Por simplicidade, vamos assumir que o email que veio no request será usado para o pagamento
+        paciente.email = email; 
+      }
+
+      // Busca o valor da consulta do médico selecionado
+      const MedicoModel = require('../models/Medico');
+      const medico = await MedicoModel.buscarPorId(medico_id);
+      
+      // Se o valor vier no body (ex: 0 para retorno), usa ele. 
+      // Se não vier (null/undefined), usa o do médico ou 150 padrão.
+      let valorFinal = 150.00;
+      if (req.body.valor !== undefined && req.body.valor !== null) {
+        valorFinal = req.body.valor;
+      } else if (medico) {
+        valorFinal = medico.valor_consulta;
       }
       
       const agendamento = await Agendamento.criar({
@@ -17,7 +34,9 @@ class AgendamentoController {
         medico_id,
         data_consulta,
         horario,
-        observacoes
+        observacoes,
+        valor: valorFinal,
+        tipo_consulta: req.body.tipo_consulta
       });
 
       // Busca dados completos para notificação
