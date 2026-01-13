@@ -5,17 +5,39 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy:
+  debug-connection:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Debug Secrets (Masked)
+      - name: 🔍 DIAGNÓSTICO DE REDE
+        env:
+          HOST: ${{ secrets.HOST }}
         run: |
-          if [ -z "${{ secrets.HOST }}" ]; then echo "❌ HOST is missing"; exit 1; else echo "✅ HOST is present"; fi
-          if [ -z "${{ secrets.USERNAME }}" ]; then echo "❌ USERNAME is missing"; exit 1; else echo "✅ USERNAME is present"; fi
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then echo "❌ SSH_PRIVATE_KEY is missing"; exit 1; else echo "✅ SSH_PRIVATE_KEY is present"; fi
+          echo "=== INICIANDO DIAGNÓSTICO ==="
+          echo "Tentando conectar em: $HOST (Porta 22)"
+          
+          # 1. Verifica se o IP foi carregado
+          if [ -z "$HOST" ]; then
+            echo "❌ ERRO CRÍTICO: O Secret HOST está vazio!"
+            exit 1
+          fi
+
+          # 2. Teste de Ping
+          echo "--- Teste de Ping ---"
+          ping -c 3 $HOST || echo "⚠️ Ping falhou (pode ser bloqueio de ICMP, normal)"
+
+          # 3. Teste de Porta (Netcat) - O MAIS IMPORTANTE
+          echo "--- Teste de Porta 22 (SSH) ---"
+          nc -zv -w 5 $HOST 22 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ CONEXÃO TCP BEM SUCEDIDA! O servidor está acessível."
+          else
+            echo "❌ FALHA DE CONEXÃO TCP. O GitHub não consegue ver o servidor."
+            echo "Possíveis causas: IP errado, Firewall bloqueando ou Servidor desligado."
+            exit 1
+          fi
 
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
@@ -25,19 +47,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "Conectado ao servidor!"
+            echo "🎉 Conectado!"
             cd /var/www/essencialsaude
             git pull origin main
-            
-            # Atualiza dependências Backend
-            cd backend
-            npm install
-            
-            # Atualiza Frontend
-            cd ../frontend
-            npm install
-            npm run build
-            
-            # Reinicia Serviços
+            cd backend && npm install
+            cd ../frontend && npm install && npm run build
             pm2 restart all
-            echo "🚀 Deploy Concluído com Sucesso!"
