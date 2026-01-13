@@ -1,18 +1,17 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import io from 'socket.io-client';
 
-export default function SucessoPage() {
+// Componente interno que usa useSearchParams
+function SucessoContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const [agendamento, setAgendamento] = useState(null);
-  const [pagamento, setPagamento] = useState(null); // Dados do pagamento (QR Code)
+  const [pagamento, setPagamento] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gerandoPix, setGerandoPix] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
@@ -22,27 +21,18 @@ export default function SucessoPage() {
   useEffect(() => {
     if (id) {
       carregarDados();
-      
-      // Socket para ouvir aprovação em tempo real
       const socket = io(API_URL);
       socket.on('pagamento-aprovado', (data) => {
-        // Se receber evento de aprovação (mesmo que seja de outro, verifica se é o nosso pelo ID se tiver, mas aqui é simples)
-        // O ideal é verificar se o payment_id bate.
-        // Vamos recarregar os dados para ter certeza.
         carregarDados();
       });
-
       return () => socket.disconnect();
     }
   }, [id]);
 
   const carregarDados = async () => {
     try {
-      // 1. Busca dados básicos do agendamento
       const res = await axios.get(`${API_URL}/api/agendamentos/detalhes/${id}`);
       setAgendamento(res.data);
-
-      // 2. Verifica se já tem pagamento associado
       if (res.data && res.data.payment_status) {
         setPagamento({
           status: res.data.payment_status,
@@ -61,8 +51,7 @@ export default function SucessoPage() {
   const gerarPix = async () => {
     setGerandoPix(true);
     try {
-      const res = await axios.post(`${API_URL}/api/pagamentos/${id}/pix`);
-      // Recarrega dados completos para atualizar status
+      await axios.post(`${API_URL}/api/pagamentos/${id}/pix`);
       carregarDados();
     } catch (error) {
       alert('Erro ao gerar PIX: ' + (error.response?.data?.erro || error.message));
@@ -72,12 +61,10 @@ export default function SucessoPage() {
   };
 
   const pagarCartao = async () => {
-    // Se já tiver link no banco, usa ele
     if (agendamento?.payment_link && !agendamento.payment_link.includes('pix')) {
       window.open(agendamento.payment_link, '_blank');
       return;
     }
-
     setGerandoLink(true);
     try {
       const res = await axios.post(`${API_URL}/api/pagamentos/${id}/link`);
@@ -100,12 +87,9 @@ export default function SucessoPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-100 text-[#5b8dfd]">Carregando ticket...</div>;
   if (!agendamento) return <div className="min-h-screen flex items-center justify-center bg-gray-100">Agendamento não encontrado.</div>;
 
-  // Se for RETORNO, exibe tela de validação sem cobrança
   if (agendamento.tipo_consulta === 'RETORNO' || parseFloat(agendamento.valor) === 0) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-0 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col border border-gray-200">
-          
+      <div className="bg-white p-0 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col border border-gray-200">
           <div className="p-6 text-center text-white bg-[#71ca4f]">
             <div className="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
@@ -113,13 +97,11 @@ export default function SucessoPage() {
             <h1 className="text-2xl font-bold">Solicitação de Retorno</h1>
             <p className="text-green-100 text-sm mt-1">Aguardando validação da recepção.</p>
           </div>
-
           <div className="p-8 space-y-6 bg-white">
             <div className="text-center">
               <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">PROTOCOLO</p>
               <p className="text-3xl font-mono font-bold text-gray-800">#{agendamento.id.toString().padStart(6, '0')}</p>
             </div>
-
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
               <p className="text-blue-800 font-bold mb-2">Como funciona?</p>
               <p className="text-sm text-blue-600">
@@ -128,7 +110,6 @@ export default function SucessoPage() {
                 Você receberá a confirmação no <strong>WhatsApp</strong> assim que validarmos.
               </p>
             </div>
-
             <div className="border-t pt-4">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Paciente</span>
@@ -140,17 +121,14 @@ export default function SucessoPage() {
               </div>
             </div>
           </div>
-
           <div className="p-6 bg-gray-50 border-t text-center">
             <a href="/" className="text-[#5b8dfd] font-bold text-sm hover:underline">Voltar ao Início</a>
           </div>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white p-0 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col border border-gray-200">
         
         {/* HEADER TICKET */}
@@ -270,6 +248,16 @@ export default function SucessoPage() {
           </p>
         </div>
       </div>
+  );
+}
+
+// Componente Principal Envolvido em Suspense
+export default function SucessoPage() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <Suspense fallback={<div className="text-[#5b8dfd]">Carregando...</div>}>
+        <SucessoContent />
+      </Suspense>
     </div>
   );
 }
