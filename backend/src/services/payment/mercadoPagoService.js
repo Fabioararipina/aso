@@ -2,9 +2,9 @@ const { MercadoPagoConfig, Payment, Preference } = require('mercadopago');
 const Agendamento = require('../../models/Agendamento');
 const whatsappService = require('../whatsapp/whatsappService');
 
-// Inicializa o cliente com o Token do .env ou um placeholder para não quebrar
+// Inicializa o cliente com o Token do .env
 const client = new MercadoPagoConfig({ 
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'TEST-00000000-0000-0000-0000-000000000000' 
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN 
 });
 
 class MercadoPagoService {
@@ -15,6 +15,9 @@ class MercadoPagoService {
       if (!agendamento) throw new Error('Agendamento não encontrado');
 
       const preference = new Preference(client);
+      
+      const frontendUrl = process.env.FRONTEND_URL || 'https://portal.primeatende.com.br';
+      const apiUrl = process.env.API_URL || 'https://api-agendamento.primeatende.com.br';
 
       const body = {
         items: [
@@ -31,18 +34,17 @@ class MercadoPagoService {
           name: agendamento.paciente_nome
         },
         back_urls: {
-          success: `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/sucesso?id=${agendamento.id}`,
-          failure: `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/sucesso?id=${agendamento.id}`,
-          pending: `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/sucesso?id=${agendamento.id}`
+          success: `${frontendUrl}/agendamento/sucesso?id=${agendamento.id}`,
+          failure: `${frontendUrl}/agendamento/sucesso?id=${agendamento.id}`,
+          pending: `${frontendUrl}/agendamento/sucesso?id=${agendamento.id}`
         },
         auto_return: 'approved',
-        // notification_url: `${process.env.API_URL}/api/pagamentos/webhook`, // Removido temporariamente para evitar erro de URL inválida em localhost
+        notification_url: `${apiUrl}/api/pagamentos/webhook`,
         external_reference: agendamento.id.toString()
       };
 
       const result = await preference.create({ body });
       
-      // Salva o link no banco
       const db = require('../../config/database');
       await db.query(
         `UPDATE agendamentos SET payment_link = $1 WHERE id = $2`,
@@ -64,18 +66,16 @@ class MercadoPagoService {
       const agendamento = await Agendamento.buscarPorId(agendamentoId);
       if (!agendamento) throw new Error('Agendamento não encontrado');
 
-      // Se já tiver pago, retorna erro
       if (agendamento.payment_status === 'approved') {
         throw new Error('Agendamento já está pago.');
       }
 
       const payment = new Payment(client);
-
-      // Tenta pegar o email do paciente (seja do banco ou do agendamento se tivermos salvo lá)
-      // Como não salvamos email na tabela agendamentos, vamos pegar do paciente via JOIN ou busca
       const Paciente = require('../../models/Paciente');
       const paciente = await Paciente.buscarPorId(agendamento.paciente_id);
       const payerEmail = paciente && paciente.email ? paciente.email : 'paciente@email.com';
+      
+      const apiUrl = process.env.API_URL || 'https://api-agendamento.primeatende.com.br';
 
       const body = {
         transaction_amount: Number(agendamento.valor) || 150.00,
@@ -88,18 +88,16 @@ class MercadoPagoService {
           entity_type: 'individual',
           type: 'customer',
         },
-        // notification_url: `${process.env.API_URL}/api/pagamentos/webhook` // Removido temporariamente para evitar erro de URL inválida em localhost
+        notification_url: `${apiUrl}/api/pagamentos/webhook`
       };
 
       const result = await payment.create({ body });
       
-      // Salva os dados do pagamento no banco para exibir no frontend
       const qrCode = result.point_of_interaction.transaction_data.qr_code;
       const qrCodeBase64 = result.point_of_interaction.transaction_data.qr_code_base64;
       const paymentId = result.id.toString();
       const ticketUrl = result.point_of_interaction.transaction_data.ticket_url;
 
-      // Atualiza no banco
       const db = require('../../config/database');
       await db.query(
         `UPDATE agendamentos SET 
@@ -127,14 +125,12 @@ class MercadoPagoService {
 
   static async processarWebhook(id) {
     try {
-      // Consulta o status atual no Mercado Pago
       const payment = new Payment(client);
       const pagamento = await payment.get({ id });
 
       console.log(`[WEBHOOK] Pagamento ${id} status: ${pagamento.status}`);
 
       if (pagamento.status === 'approved') {
-        // 1. Atualiza Status do Agendamento no Banco
         const db = require('../../config/database');
         
         const result = await db.query(
@@ -150,6 +146,9 @@ class MercadoPagoService {
 
         if (agendamento) {
           console.log(`[PAGAMENTO] Agendamento ${agendamento.id} CONFIRMADO via PIX!`);
+          
+          const frontendUrl = process.env.FRONTEND_URL || 'https://portal.primeatende.com.br';
+          
           const msg = `
 ✅ *PAGAMENTO CONFIRMADO!*
 -------------------------------
@@ -163,7 +162,7 @@ Seu agendamento está *100% confirmado*.
 ⏰ *Horário:* ${agendamento.horario}
 
 🔗 *Acompanhe sua vez:*
-${process.env.FRONTEND_URL || 'http://localhost:3000'}/agendamento/fila/${agendamento.id}
+${frontendUrl}/agendamento/fila/${agendamento.id}
 `;
           const AgendamentoModel = require('../../models/Agendamento');
           const dadosCompletos = await AgendamentoModel.buscarPorId(agendamento.id);
