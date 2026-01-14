@@ -12,7 +12,7 @@ export default function AdminHorariosPage() {
   const [form, setForm] = useState({ dia_semana: '1', data_especifica: '', hora_inicio: '08:00', hora_fim: '12:00', duracao: '30' });
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     axios.get(`${API_URL}/api/medicos`).then(res => setMedicos(res.data));

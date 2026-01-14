@@ -15,31 +15,48 @@ class PaymentController {
   static async gerarPix(req, res) {
     try {
       const { id } = req.params; // ID do agendamento
+      console.log(`[PAGAMENTO] Solicitando PIX para agendamento: ${id}`);
       const dados = await MercadoPagoService.criarPix(id);
       res.json(dados);
     } catch (error) {
-      res.status(500).json({ erro: error.message });
+      console.error(`[ERRO PIX] Falha ao gerar PIX para agendamento ${req.params.id}:`, error);
+      // Se o erro for do Mercado Pago, ele vem com detalhes no .message ou .cause
+      const mensagemErro = error.message || 'Erro interno ao gerar PIX';
+      res.status(500).json({ erro: mensagemErro, detalhes: error.cause || null });
     }
   }
 
   static async webhook(req, res) {
     try {
-      const { type, data } = req.body;
+      console.log('--- RECEBENDO WEBHOOK MERCADO PAGO ---');
+      console.log('Body:', JSON.stringify(req.body, null, 2));
+      console.log('Query:', JSON.stringify(req.query, null, 2));
       
-      if (type === 'payment') {
-        const id = data.id;
-        const status = await MercadoPagoService.processarWebhook(id);
+      const { type, action, data } = req.body;
+      
+      // O Mercado Pago pode enviar 'type' ou 'action' dependendo da versão/evento
+      const eventoTipo = type || action;
+      
+      if (eventoTipo === 'payment' || action === 'payment.created' || action === 'payment.updated') {
+        const paymentId = data?.id || req.body.resource?.split('/').pop();
         
-        // Se aprovado, emite evento para o frontend
-        if (status === 'approved') {
-           const io = req.app.get('io');
-           io.emit('pagamento-aprovado', { payment_id: id });
+        if (paymentId) {
+          console.log(`[WEBHOOK] Processando pagamento ID: ${paymentId}`);
+          const status = await MercadoPagoService.processarWebhook(paymentId);
+          console.log(`[WEBHOOK] Status processado: ${status}`);
+          
+          if (status === 'approved') {
+             const io = req.app.get('io');
+             if (io) {
+               io.emit('pagamento-aprovado', { payment_id: paymentId });
+             }
+          }
         }
       }
 
       res.status(200).send('OK');
     } catch (error) {
-      console.error(error);
+      console.error('[ERRO WEBHOOK]:', error);
       res.status(500).send('Erro');
     }
   }

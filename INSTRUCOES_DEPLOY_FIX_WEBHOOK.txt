@@ -1,0 +1,25 @@
+INSTRUÇÕES PARA CORREÇÃO DO WEBHOOK DO MERCADO PAGO
+---------------------------------------------------
+
+1. ARQUIVOS CRÍTICOS PARA UPLOAD (BACKEND)
+   Suba os seguintes arquivos para a pasta 'backend' no servidor:
+   - backend/.env (Contém a correção CRÍTICA da API_URL para https://api-agendamento.primeatende.com.br)
+   - backend/src/controllers/PaymentController.js (Logs melhorados para debug)
+   - backend/src/services/payment/mercadoPagoService.js (Correção na busca do pagamento: aceita PIX e Cartão)
+   - backend/src/controllers/AgendamentoController.js (Remoção de IPs locais)
+   - backend/src/controllers/MedicoController.js (Remoção de IPs locais)
+
+2. REINICIAR O SERVIDOR NODE.JS
+   Após subir o arquivo .env, é OBRIGATÓRIO reiniciar o backend para carregar as novas configurações.
+   Se usar PM2:
+   pm2 restart backend
+
+3. FRONTEND (OPCIONAL MAS RECOMENDADO)
+   Foram removidos diversos IPs fixos (192.168.20.19) dos arquivos do frontend.
+   Se possível, faça o build e deploy do frontend para garantir que nenhum cliente tente acessar um IP local.
+
+4. COMO TESTAR
+   - Gere um novo PIX ou Cartão no sistema.
+   - Pague (pode ser valor baixo de teste se configurado).
+   - Verifique os logs do servidor (pm2 logs backend) e procure por "--- RECEBENDO WEBHOOK MERCADO PAGO ---".
+   - Se aparecer, o Webhook está chegando!

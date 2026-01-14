@@ -12,7 +12,7 @@ export default function AdminTvPage() {
   const [arquivo, setArquivo] = useState(null);
   const [conteudo, setConteudo] = useState(''); // Para cidade ou texto
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     fetchMidias();

@@ -26,7 +26,7 @@ export default function AgendamentoWizard() {
   // Formulário Final
   const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', observacoes: '', tipo_consulta: 'PRIMEIRA_VEZ' });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   // Carregar Médicos no Início
   useEffect(() => {

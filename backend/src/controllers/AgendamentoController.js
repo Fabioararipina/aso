@@ -60,7 +60,7 @@ Você receberá uma nova mensagem assim que o horário for aprovado pela recepç
 
 💳 *DICA:*
 Conheça o *Cartão Essencial Saúde* e ganhe descontos exclusivos:
-${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/cartao
+${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/cartao
 `;
       whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msg);
 
@@ -168,7 +168,7 @@ ${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/cartao
       console.log('Tentando enviar WhatsApp de confirmação para:', agendamentoCompleto.whatsapp);
 
       // Garante que usa o IP correto se não houver variável de ambiente
-      const frontendUrl = process.env.FRONTEND_URL || 'http://192.168.20.19:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://portal.primeatende.com.br';
       const linkFila = `${frontendUrl}/agendamento/fila/${id}`;
       
       const msg = `
@@ -253,7 +253,7 @@ _Por favor, chegue com 10 minutos de antecedência._
         io.emit('chamar-paciente', agendamentoCompleto);
         
         // 1. Avisa o paciente atual
-        const linkFila = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${id}`;
+        const linkFila = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/agendamento/fila/${id}`;
         const msgAtual = `
 🔔 *SUA VEZ CHEGOU!*
 -------------------------------
@@ -283,7 +283,7 @@ Boa consulta!
             const posicao = index + 1;
             const tempoEstimado = tempoMedio * posicao;
             let msgProximo = '';
-            const linkFilaProx = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${p.id}`;
+            const linkFilaProx = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/agendamento/fila/${p.id}`;
 
             if (posicao === 1) {
                msgProximo = `

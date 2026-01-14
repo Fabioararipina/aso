@@ -15,35 +15,29 @@
     - Configuração de Valor de Consulta por Médico.
     - **Dashboard de Métricas (BI):** Evolução diária, tipos de pacientes, especialidades e performance da equipe.
 - **Recepção & Médico:** Fluxo completo de check-in, atendimento e finalização com envio de prontuário digital.
+- **TV Corporativa:** 
+    - Painel moderno (`/tv`) para Smart TVs novas.
+    - Painel Legacy (`/tv/legacy`) otimizado para LG WebOS e TVs antigas (sem Flex/Grid, API via XMLHttpRequest).
 
-## 💳 Integração Mercado Pago (Status: 90% - Bloqueio de Ambiente)
-- **O que já fizemos:**
-    - Estrutura de banco de dados para pagamentos.
-    - Backend configurado com SDK oficial e credenciais de produção.
-    - Frontend com tela de sucesso dinâmica: exibe QR Code PIX ou botão para Checkout Pro.
-    - Lógica de Webhook pronta para baixar pagamentos automaticamente.
-- **Onde parou (Bloqueio):** 
-    - Erro `auto_return invalid` e `QR Code Inválido` ao tentar pagar.
-    - **Causa Raiz:** O Mercado Pago rejeita URLs locais (`http://192.168...` ou `localhost`) e bloqueia pagamentos feitos pelo próprio titular da conta (mesmo CPF).
-    - **Solução Paliativa Tentada:** Usar URLs públicas (Google) para enganar a validação, mas o bloqueio de segurança da conta persiste.
+## 💳 Integração Mercado Pago (Status: 95% - Ajuste Fino)
+- **O que já funciona:**
+    - Token de Produção configurado.
+    - Checkout Pro (Cartão) abre e processa.
+    - PIX gera QR Code e processa pagamento (validado em aba anônima).
+- **Onde parou (PENDÊNCIA):** 
+    - **Webhook:** O pagamento é confirmado no banco (dinheiro sai da conta), mas o sistema Essencial Saúde não recebe o aviso de volta para mudar o status para "CONFIRMADO".
+    - **Causa Provável:** URL do Webhook no `.env` do servidor precisa de revisão final ou o Mercado Pago está rejeitando o certificado SSL no callback.
 
-## 📝 Próximos Passos (Plano de Ação Pós-Deploy)
+## 📝 Próximos Passos (Plano de Ação - Manhã)
 
-A prioridade absoluta agora é tirar o sistema do ambiente local e colocá-lo na internet. Isso resolverá os problemas de pagamento e permitirá o uso real.
+1.  **DEBUGAR WEBHOOK 🕵️‍♂️**
+    *   Verificar logs do Nginx para ver se o Mercado Pago está batendo na rota `/api/pagamentos/webhook`.
+    *   Testar a rota de Webhook manualmente via Postman/Curl.
+    *   Se necessário, configurar um log específico para capturar o corpo do aviso do Mercado Pago.
 
-1.  **DEPLOY EM PRODUÇÃO (Colocar Online) 🌍**
-    *   Subir o Frontend e Backend para um servidor real (VPS ou PaaS).
-    *   Configurar domínio/subdomínio seguro (`https://agendamento.suaclinica.com.br`).
-    *   *Por que:* O Mercado Pago exige HTTPS válido para processar pagamentos e enviar Webhooks.
-
-2.  **REATIVAR PAGAMENTOS ✅**
-    *   Atualizar o arquivo `.env` no servidor com as URLs reais (`https://...`).
-    *   Testar o fluxo de pagamento novamente (agora funcionará pois o ambiente é válido).
-    *   Configurar o Webhook no painel do Mercado Pago apontando para o servidor.
-
-3.  **AJUSTES FINAIS DE CHECKOUT 🛠️**
-    *   Se o PIX Transparente continuar burocrático, migrar definitivamente para o **Checkout Pro** (redirecionamento), que é infalível e aceita tudo.
-    *   Validar o retorno automático (tela verde) após o pagamento.
+2.  **AJUSTES FINAIS TV 📺**
+    *   Confirmar se a TV Legacy carregou os vídeos (limite do Nginx aumentado para 100MB).
+    *   Validar a hora da TV do cliente para garantir HTTPS.
 
 ---
-*Última atualização: 13/01/2026 às 13:10 - Sistema pronto para Deploy*
+*Última atualização: 14/01/2026 às 03:00 - Sistema em Produção (Beta)*

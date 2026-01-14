@@ -128,24 +128,30 @@ class MercadoPagoService {
       const payment = new Payment(client);
       const pagamento = await payment.get({ id });
 
-      console.log(`[WEBHOOK] Pagamento ${id} status: ${pagamento.status}`);
+      console.log(`[WEBHOOK] Detalhes do Pagamento MP: ID ${id}, Status: ${pagamento.status}, External Ref: ${pagamento.external_reference}`);
 
       if (pagamento.status === 'approved') {
         const db = require('../../config/database');
         
-        const result = await db.query(
-          `UPDATE agendamentos SET 
+        // Tenta buscar por payment_id (usado no PIX) ou external_reference (usado no Checkout Pro)
+        const query = `
+          UPDATE agendamentos 
+          SET 
             payment_status = 'approved', 
-            status = 'CONFIRMADO' 
-           WHERE payment_id = $1 
-           RETURNING *`,
-          [id.toString()]
-        );
+            status = 'CONFIRMADO',
+            atualizado_em = NOW()
+          WHERE (payment_id = $1 OR id::text = $2)
+          AND (payment_status != 'approved')
+          RETURNING *
+        `;
+        
+        const externalRef = pagamento.external_reference;
+        const result = await db.query(query, [id.toString(), externalRef]);
 
         const agendamento = result.rows[0];
 
         if (agendamento) {
-          console.log(`[PAGAMENTO] Agendamento ${agendamento.id} CONFIRMADO via PIX!`);
+          console.log(`[PAGAMENTO] Agendamento ${agendamento.id} CONFIRMADO com sucesso!`);
           
           const frontendUrl = process.env.FRONTEND_URL || 'https://portal.primeatende.com.br';
           
@@ -153,7 +159,7 @@ class MercadoPagoService {
 ✅ *PAGAMENTO CONFIRMADO!*
 -------------------------------
 Olá, *${agendamento.paciente_nome || 'Paciente'}*!
-Recebemos seu pagamento via PIX.
+Recebemos seu pagamento com sucesso.
 
 Seu agendamento está *100% confirmado*.
 
@@ -164,9 +170,18 @@ Seu agendamento está *100% confirmado*.
 🔗 *Acompanhe sua vez:*
 ${frontendUrl}/agendamento/fila/${agendamento.id}
 `;
-          const AgendamentoModel = require('../../models/Agendamento');
-          const dadosCompletos = await AgendamentoModel.buscarPorId(agendamento.id);
-          await whatsappService.enviarMensagem(dadosCompletos.whatsapp, msg);
+          try {
+            const AgendamentoModel = require('../../models/Agendamento');
+            const dadosCompletos = await AgendamentoModel.buscarPorId(agendamento.id);
+            if (dadosCompletos && dadosCompletos.whatsapp) {
+              await whatsappService.enviarMensagem(dadosCompletos.whatsapp, msg);
+              console.log(`[WHATSAPP] Mensagem de confirmação enviada para ${dadosCompletos.whatsapp}`);
+            }
+          } catch (whatsappError) {
+            console.error('[ERRO WHATSAPP] Falha ao enviar confirmação:', whatsappError.message);
+          }
+        } else {
+          console.log(`[WEBHOOK] Pagamento ${id} aprovado, mas nenhum agendamento pendente foi encontrado/atualizado.`);
         }
       }
 

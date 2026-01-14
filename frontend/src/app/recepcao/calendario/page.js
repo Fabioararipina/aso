@@ -16,7 +16,7 @@ export default function CalendarioRecepcaoPage() {
   const [selectedSlot, setSelectedSlot] = useState(null); // { medicoId, hora, agendamento? }
   const [form, setForm] = useState({ nome: '', whatsapp: '', observacoes: '' });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     fetchDados();

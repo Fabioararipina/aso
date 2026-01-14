@@ -19,7 +19,7 @@ export default function MetricasPage() {
 
   const [periodo, setPeriodo] = useState({ inicio: firstDay, fim: lastDay });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     fetchMetricas();

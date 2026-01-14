@@ -24,7 +24,7 @@ export default function MedicoPage() {
   const [historico, setHistorico] = useState([]);
   const [pacienteHistoricoNome, setPacienteHistoricoNome] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     // Carregar lista de médicos para seleção (simulando login)

@@ -26,7 +26,7 @@ class MedicoController {
 
       let cont = 0;
       for (const ag of agendamentos) {
-        const linkFila = `${process.env.FRONTEND_URL || 'http://192.168.20.19:3000'}/agendamento/fila/${ag.id}`;
+        const linkFila = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/agendamento/fila/${ag.id}`;
         
         const msg = `
 ⚠️ *AVISO DE ATRASO*
