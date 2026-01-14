@@ -16,8 +16,6 @@ const io = socketIo(server, {
   }
 });
 
-const path = require('path');
-
 app.use(cors({
   origin: ["https://portal.primeatende.com.br", "http://localhost:3000"],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
