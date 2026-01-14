@@ -9,14 +9,19 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Permite qualquer origem para facilitar o acesso de TVs e outros dispositivos na rede local
-    methods: ['GET', 'POST', 'PUT']
+    origin: ["https://portal.primeatende.com.br", "http://localhost:3000"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
   }
 });
 
 const path = require('path');
 
-app.use(cors());
+app.use(cors({
+  origin: ["https://portal.primeatende.com.br", "http://localhost:3000"],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
