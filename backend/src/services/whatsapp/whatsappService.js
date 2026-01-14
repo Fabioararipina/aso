@@ -99,7 +99,7 @@ class WhatsAppService {
       await this.client.sendMessage(contact._serialized, texto);
       return true;
     } catch (error) {
-      console.error('Erro ao enviar mensagem WhatsApp:', error);
+      console.error('Erro ao enviar mensagem WhatsApp:', error.message);
       return false;
     }
   }
