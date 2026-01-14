@@ -1,400 +1,226 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import axios from 'axios';
 
-// Página otimizada para TVs antigas (LG WebOS, Samsung Tizen antigos)
-// Evita uso de Flex-Gap, Grid complexo e efeitos de blur/sombra pesados.
+// Página de TV para navegadores extremamente antigos (ES5 / Legacy)
+// Removemos: arrow functions, async/await, axios, flexbox/grid complexo.
 export default function TvLegacyPage() {
   const [lista, setLista] = useState([]);
-  const [chamadaAtual, setChamadaAtual] = useState(null);
-  
-  // Estados de Mídia
   const [midias, setMidias] = useState([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [weather, setWeather] = useState(null);
-  const [news, setNews] = useState(null);
+  const [chamadaAtual, setChamadaAtual] = useState(null);
 
-  // URL da API
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.20.19:5000';
+  // URL Hardcoded para evitar falhas de variáveis de ambiente em navegadores velhos
+  const API_URL = 'https://api-agendamento.primeatende.com.br';
 
-  // Refs para controle de áudio
-  const audioContextRef = useRef(null);
-
-  // --- FUNÇÕES DE BUSCA ---
-  const fetchDados = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/agendamentos/tv/dados`);
-      setLista(res.data);
-    } catch (error) { console.error('Erro dados:', error); }
-  };
-
-  const fetchMidias = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/tv-midias`);
-      if (res.data.length > 0) setMidias(res.data);
-    } catch (e) { console.error('Erro midias', e); }
-  };
-
-  const fetchWeather = async (cidade) => {
-    try {
-      const cidadeLimpa = cidade.split(' - ')[0].trim();
-      const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeLimpa}&count=1&language=pt&format=json`);
-      if (!geoRes.data.results) { setWeather(null); return; }
-      const { latitude, longitude } = geoRes.data.results[0];
-      const weatherRes = await axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,relative_humidity_2m&timezone=America/Sao_Paulo`);
-      
-      setWeather({
-        cidade: cidade,
-        temp: weatherRes.data.current.temperature_2m,
-        code: weatherRes.data.current.weather_code,
-        humidade: weatherRes.data.current.relative_humidity_2m
-      });
-    } catch (e) { setWeather(null); }
-  };
-
-  const fetchNews = async (rssUrl) => {
-    try {
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl.trim())}`;
-      const res = await axios.get(apiUrl);
-      if (res.data.items && res.data.items.length > 0) {
-        const randomIndex = Math.floor(Math.random() * Math.min(5, res.data.items.length));
-        const item = res.data.items[randomIndex];
-        setNews({ titulo: item.title, imagem: item.thumbnail || null, fonte: res.data.feed.title });
+  // Busca de Dados usando XMLHttpRequest (mais compatível que fetch em TVs muito velhas)
+  function fetchDados() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_URL + '/api/agendamentos/tv/dados', true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          setLista(data);
+        } catch (e) { console.error(e); }
       }
-    } catch (e) { console.error('Erro news', e); }
-  };
+    };
+    xhr.send();
+  }
 
-  // --- ÁUDIO COMPATÍVEL ---
-  const playAlertSound = () => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.type = 'sine';
-      osc.frequency.value = 440;
-      gain.gain.value = 0.5;
-      
-      osc.start();
-      setTimeout(() => { osc.frequency.value = 554.37; }, 400);
-      setTimeout(() => { osc.stop(); }, 1200);
-    } catch (e) { console.error('Erro audio:', e); }
-  };
+  function fetchMidias() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_URL + '/api/tv-midias', true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data && data.length > 0) setMidias(data);
+        } catch (e) { console.error(e); }
+      }
+    };
+    xhr.send();
+  }
 
-  const speakText = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  // --- EFEITOS ---
-  useEffect(() => {
+  useEffect(function() {
     fetchDados();
     fetchMidias();
 
-    const socket = io(API_URL);
-    socket.on('connect', () => console.log('Socket TV Legacy conectado'));
-    
-    // Atualizações
-    const eventos = ['agendamento-atualizado', 'agendamento-confirmado', 'novo-agendamento'];
-    eventos.forEach(ev => socket.on(ev, () => fetchDados()));
+    // Socket.io com transporte via Websocket apenas (mais estável para TVs)
+    var socket = io(API_URL, { transports: ['websocket'] });
 
-    // Chamada
-    socket.on('chamar-paciente', (agendamento) => {
+    socket.on('agendamento-atualizado', function() { fetchDados(); });
+    socket.on('agendamento-confirmado', function() { fetchDados(); });
+    socket.on('novo-agendamento', function() { fetchDados(); });
+    
+    socket.on('chamar-paciente', function(agendamento) {
       setChamadaAtual(agendamento);
-      playAlertSound();
-      speakText(`Paciente ${agendamento.paciente_nome}, comparecer ao consultório.`);
-      setTimeout(() => setChamadaAtual(null), 15000);
+      setTimeout(function() {
+        setChamadaAtual(null);
+      }, 15000);
     });
 
-    const interval = setInterval(fetchDados, 30000);
-    return () => { socket.disconnect(); clearInterval(interval); };
+    var interval = setInterval(fetchDados, 30000);
+
+    return function() {
+      socket.disconnect();
+      clearInterval(interval);
+    };
   }, []);
 
-  // Timer do Carrossel
-  useEffect(() => {
+  useEffect(function() {
     if (midias.length === 0) return;
-    const slide = midias[currentSlideIndex];
+    
+    var slide = midias[currentSlideIndex];
+    var time = (slide.duracao || 10) * 1000;
 
-    if (slide.tipo === 'TEMPO' && !weather) fetchWeather(slide.conteudo);
-    if (slide.tipo === 'NOTICIA' && !news) fetchNews(slide.conteudo);
-
-    const time = (slide.duracao || 10) * 1000;
-    const timer = setTimeout(() => {
-      setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
-      setWeather(null);
-      setNews(null);
+    var timer = setTimeout(function() {
+      setCurrentSlideIndex(function(prev) {
+        return (prev + 1) % midias.length;
+      });
     }, time);
 
-    return () => clearTimeout(timer);
+    return function() {
+      clearTimeout(timer);
+    };
   }, [currentSlideIndex, midias]);
 
-  // --- RENDERIZAÇÃO ESTILO CLÁSSICO (TABLES & FLOATS) ---
+  // Estilos em Objeto para garantir que não dependemos de CSS externo moderno
+  var styles = {
+    container: {
+      backgroundColor: '#f0f2f5',
+      height: '100vh',
+      width: '100vw',
+      fontFamily: 'Arial, sans-serif',
+      overflow: 'hidden',
+      margin: 0,
+      padding: 0
+    },
+    header: {
+      height: '100px',
+      backgroundColor: '#1565c0',
+      color: 'white',
+      padding: '0 20px'
+    },
+    bodyTable: {
+      width: '100%',
+      height: 'calc(100vh - 100px)',
+      borderCollapse: 'collapse',
+      tableLayout: 'fixed'
+    }
+  };
+
   return (
     <div style={styles.container}>
-      
-      {/* HEADER */}
+      {/* HEADER CLÁSSICO */}
       <div style={styles.header}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.png" alt="Logo" style={styles.logo} />
-          <div style={{ marginLeft: '20px' }}>
-            <h1 style={styles.title}>PAINEL DE ATENDIMENTO</h1>
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={styles.clock}>
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
+        <table style={{ width: '100%', height: '100%' }}>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>
+                <img src="/logo.png" style={{ height: '70px', backgroundColor: '#fff', padding: '5px', borderRadius: '5px', verticalAlign: 'middle' }} />
+                <span style={{ fontSize: '30px', fontWeight: 'bold', marginLeft: '15px' }}>PAINEL DE ATENDIMENTO</span>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
+                <span style={{ fontSize: '60px', fontWeight: 'bold' }}>
+                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      {/* BODY */}
-      <div style={styles.body}>
-        
-        {/* ESQUERDA: MÍDIA (25%) */}
-        <div style={styles.leftColumn}>
-          {midias.length === 0 ? (
-            <div style={styles.placeholderMedia}>
-              <h2>Bem-vindo</h2>
-              <p>Essencial Saúde</p>
-            </div>
-          ) : (
-            <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#000' }}>
-              {midias[currentSlideIndex].tipo === 'IMAGEM' && (
-                <img src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} style={styles.mediaImage} />
-              )}
-              {midias[currentSlideIndex].tipo === 'VIDEO' && (
-                <video src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} style={styles.mediaImage} autoPlay muted loop />
-              )}
-              {midias[currentSlideIndex].tipo === 'TEMPO' && (
-                <div style={styles.weatherBox}>
-                  <h1>{weather ? Math.round(weather.temp) + '°C' : '--'}</h1>
-                  <h3>{weather?.cidade || 'Carregando...'}</h3>
-                </div>
-              )}
-              {midias[currentSlideIndex].tipo === 'NOTICIA' && (
-                <div style={styles.newsBox}>
-                  {news?.imagem && <img src={news.imagem} style={styles.newsImage} />}
-                  <div style={styles.newsText}>
-                    <h3>{news?.titulo || 'Carregando notícias...'}</h3>
+      {/* LAYOUT PRINCIPAL USANDO TABELA PARA DIVISÃO DE COLUNAS */}
+      <table style={styles.bodyTable}>
+        <tbody>
+          <tr>
+            {/* COLUNA MÍDIA (30%) */}
+            <td style={{ width: '30%', backgroundColor: '#000', verticalAlign: 'top', textAlign: 'center' }}>
+               {midias.length > 0 && midias[currentSlideIndex] ? (
+                  <div style={{ padding: '10px' }}>
+                     {midias[currentSlideIndex].tipo === 'IMAGEM' && (
+                       <img src={API_URL + '/uploads/tv/' + midias[currentSlideIndex].conteudo} style={{ maxWidth: '100%', height: 'auto' }} />
+                     )}
+                     {midias[currentSlideIndex].tipo === 'VIDEO' && (
+                       <video src={API_URL + '/uploads/tv/' + midias[currentSlideIndex].conteudo} style={{ width: '100%' }} autoPlay muted loop />
+                     )}
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+               ) : (
+                 <div style={{ color: '#fff', paddingTop: '100px' }}>
+                   <h2 style={{ fontSize: '40px' }}>ESSENCIAL SAÚDE</h2>
+                   <p style={{ fontSize: '20px' }}>Sua saúde em primeiro lugar.</p>
+                 </div>
+               )}
+            </td>
 
-        {/* DIREITA: TABELA (75%) */}
-        <div style={styles.rightColumn}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeader}>
-                <th style={{ width: '15%', padding: '15px' }}>HORÁRIO</th>
-                <th style={{ width: '40%', padding: '15px' }}>PACIENTE</th>
-                <th style={{ width: '25%', padding: '15px' }}>MÉDICO</th>
-                <th style={{ width: '20%', padding: '15px' }}>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '50px', fontSize: '24px', color: '#666' }}>Sem atendimentos no momento.</td></tr>
-              ) : (
-                lista.map((item, idx) => (
-                  <tr key={item.id} style={{ 
-                    backgroundColor: item.status === 'EM_ATENDIMENTO' ? '#e3f2fd' : (idx % 2 === 0 ? '#fff' : '#f9fafb'),
-                    color: item.status === 'EM_ATENDIMENTO' ? '#1565c0' : '#333',
-                    borderBottom: '1px solid #ddd'
-                  }}>
-                    <td style={{ padding: '20px', fontSize: '28px', fontWeight: 'bold', textAlign: 'center' }}>
-                      {item.horario.slice(0, 5)}
-                    </td>
-                    <td style={{ padding: '20px', fontSize: '32px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      {item.paciente_nome}
-                    </td>
-                    <td style={{ padding: '20px', fontSize: '24px' }}>
-                      Dr(a). {item.medico_nome.split(' ')[0]}
-                    </td>
-                    <td style={{ padding: '20px', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '10px 20px',
-                        borderRadius: '50px',
-                        backgroundColor: item.status === 'EM_ATENDIMENTO' ? '#2196f3' : '#e0e0e0',
-                        color: item.status === 'EM_ATENDIMENTO' ? '#fff' : '#757575',
-                        fontWeight: 'bold',
-                        fontSize: '18px'
-                      }}>
-                        {item.status === 'EM_ATENDIMENTO' ? 'CHAMANDO' : item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            {/* COLUNA LISTA (70%) */}
+            <td style={{ width: '70%', backgroundColor: '#fff', verticalAlign: 'top' }}>
+               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                 <thead>
+                   <tr style={{ backgroundColor: '#eeeeee', color: '#666', fontSize: '22px' }}>
+                     <th style={{ padding: '15px', borderBottom: '2px solid #ccc', width: '15%' }}>HORA</th>
+                     <th style={{ padding: '15px', borderBottom: '2px solid #ccc', textAlign: 'left' }}>PACIENTE</th>
+                     <th style={{ padding: '15px', borderBottom: '2px solid #ccc', textAlign: 'left' }}>MÉDICO</th>
+                     <th style={{ padding: '15px', borderBottom: '2px solid #ccc', width: '20%' }}>STATUS</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {lista.length === 0 ? (
+                     <tr><td colSpan="4" style={{ textAlign: 'center', padding: '100px', fontSize: '30px', color: '#999' }}>Aguardando atendimentos...</td></tr>
+                   ) : (
+                     lista.map(function(item, index) {
+                       var isChamando = item.status === 'EM_ATENDIMENTO';
+                       return (
+                         <tr key={item.id} style={{ 
+                           backgroundColor: isChamando ? '#fff9c4' : (index % 2 === 0 ? '#ffffff' : '#f9f9f9'), 
+                           borderBottom: '1px solid #eee' 
+                         }}>
+                           <td style={{ padding: '20px', fontSize: '32px', fontWeight: 'bold', textAlign: 'center' }}>
+                             {item.horario.slice(0, 5)}
+                           </td>
+                           <td style={{ padding: '20px', fontSize: '38px', fontWeight: 'bold', textTransform: 'uppercase', color: isChamando ? '#d32f2f' : '#333' }}>
+                             {item.paciente_nome}
+                           </td>
+                           <td style={{ padding: '20px', fontSize: '24px', color: '#666' }}>
+                             {item.medico_nome}
+                           </td>
+                           <td style={{ padding: '20px', textAlign: 'center' }}>
+                              <div style={{ 
+                                backgroundColor: isChamando ? '#d32f2f' : '#e0e0e0', 
+                                color: isChamando ? '#fff' : '#777',
+                                padding: '10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '18px'
+                              }}>
+                                {isChamando ? 'CHAMANDO' : item.status}
+                              </div>
+                           </td>
+                         </tr>
+                       );
+                     })
+                   )}
+                 </tbody>
+               </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-      {/* OVERLAY DE CHAMADA */}
+      {/* OVERLAY DE CHAMADA (FULL SCREEN) */}
       {chamadaAtual && (
-        <div style={styles.overlay}>
-          <div style={styles.overlayBox}>
-            <h2 style={{ fontSize: '40px', color: '#ffeb3b', marginBottom: '20px', textTransform: 'uppercase' }}>Atenção Paciente</h2>
-            <h1 style={{ fontSize: '90px', margin: '20px 0', lineHeight: '1.1' }}>{chamadaAtual.paciente_nome}</h1>
-            <h3 style={{ fontSize: '50px', marginTop: '40px', color: '#90caf9' }}>
-              Consultório: Dr(a). {chamadaAtual.medico_nome}
-            </h3>
-          </div>
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', 
+          backgroundColor: '#c62828', color: '#fff', zIndex: 1000, 
+          textAlign: 'center', paddingTop: '150px' 
+        }}>
+           <h2 style={{ fontSize: '50px', fontWeight: 'normal', margin: 0 }}>POR FAVOR, COMPARECER:</h2>
+           <h1 style={{ fontSize: '110px', margin: '50px 0', fontWeight: 'bold' }}>{chamadaAtual.paciente_nome}</h1>
+           <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '30px', display: 'inline-block', borderRadius: '20px' }}>
+              <h3 style={{ fontSize: '50px', margin: 0 }}>CONSULTÓRIO: {chamadaAtual.medico_nome}</h3>
+           </div>
         </div>
       )}
+
     </div>
   );
 }
-
-// Estilos em Objeto JS (Inline Styles) para garantir compatibilidade máxima
-const styles = {
-  container: {
-    backgroundColor: '#f0f2f5',
-    height: '100vh',
-    width: '100vw',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: 'Arial, sans-serif',
-    overflow: 'hidden'
-  },
-  header: {
-    height: '120px',
-    backgroundColor: '#1565c0',
-    color: 'white',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0 40px',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-    zIndex: 10
-  },
-  logo: {
-    height: '80px',
-    backgroundColor: '#fff',
-    borderRadius: '10px',
-    padding: '5px'
-  },
-  title: {
-    fontSize: '32px',
-    margin: 0,
-    letterSpacing: '2px'
-  },
-  clock: {
-    fontSize: '60px',
-    fontWeight: 'bold',
-    fontFamily: 'monospace'
-  },
-  body: {
-    flex: 1,
-    display: 'flex',
-    padding: '20px',
-    height: 'calc(100vh - 120px)',
-    boxSizing: 'border-box'
-  },
-  leftColumn: {
-    width: '30%',
-    marginRight: '20px',
-    backgroundColor: '#000',
-    borderRadius: '15px',
-    overflow: 'hidden',
-    position: 'relative'
-  },
-  rightColumn: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: '15px',
-    overflow: 'hidden',
-    boxShadow: '0 0 20px rgba(0,0,0,0.1)'
-  },
-  placeholderMedia: {
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: '#fff',
-    textAlign: 'center'
-  },
-  mediaImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain' // Se não suportar, vai esticar, mas ok
-  },
-  weatherBox: {
-    height: '100%',
-    backgroundColor: '#1976d2',
-    color: 'white',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    textAlign: 'center'
-  },
-  newsBox: {
-    height: '100%',
-    position: 'relative',
-    backgroundColor: '#000'
-  },
-  newsImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    opacity: 0.6
-  },
-  newsText: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: '100%',
-    padding: '20px',
-    background: 'rgba(0,0,0,0.8)',
-    color: '#fff',
-    boxSizing: 'border-box'
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    tableLayout: 'fixed'
-  },
-  tableHeader: {
-    backgroundColor: '#eeeeee',
-    color: '#666',
-    textAlign: 'left',
-    fontSize: '20px',
-    borderBottom: '2px solid #ddd'
-  },
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(13, 71, 161, 0.95)',
-    zIndex: 9999,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    textAlign: 'center'
-  },
-  overlayBox: {
-    padding: '50px',
-    border: '10px solid #fff',
-    borderRadius: '30px',
-    color: '#fff',
-    maxWidth: '90%'
-  }
-};
