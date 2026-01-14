@@ -3,7 +3,8 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const whatsappService = require('./services/whatsapp/whatsappService');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const server = http.createServer(app);
