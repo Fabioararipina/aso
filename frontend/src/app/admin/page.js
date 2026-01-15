@@ -9,6 +9,13 @@ export default function AdminPage() {
   const [status, setStatus] = useState('desconectado');
   const [qrCode, setQrCode] = useState(null);
   const [logs, setLogs] = useState([]);
+  
+  // Estados para o formulário de teste
+  const [testNumber, setTestNumber] = useState('');
+  const [testMessage, setTestMessage] = useState('Olá! Esta é uma mensagem de teste.');
+  const [isSending, setIsSending] = useState(false);
+  const [testStatus, setTestStatus] = useState({ message: '', type: '' });
+
 
   // Em produção usa a mesma origem (proxy via nginx), em dev usa localhost:5000
   const API_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -141,6 +148,38 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendTestMessage = async (e) => {
+    e.preventDefault();
+    if (!testNumber || !testMessage) {
+      setTestStatus({ message: 'Por favor, preencha o número e a mensagem.', type: 'error' });
+      return;
+    }
+    
+    setIsSending(true);
+    setTestStatus({ message: 'Enviando mensagem de teste...', type: 'info' });
+    addLog(`Enviando mensagem de teste para ${testNumber}...`);
+
+    try {
+      const response = await axios.post(`${API_URL}/api/whatsapp/enviar`, {
+        numero: testNumber,
+        mensagem: testMessage
+      });
+
+      if (response.data.success) {
+        setTestStatus({ message: 'Mensagem enviada com sucesso!', type: 'success' });
+        addLog(`Mensagem para ${testNumber} enviada com sucesso.`);
+      } else {
+        throw new Error(response.data.message || 'Ocorreu um erro desconhecido.');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Falha ao conectar com a API.';
+      setTestStatus({ message: `Erro ao enviar mensagem: ${errorMessage}`, type: 'error' });
+      addLog(`Falha ao enviar para ${testNumber}: ${errorMessage}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
@@ -221,8 +260,63 @@ export default function AdminPage() {
               )}
             </div>
           </div>
-
         </div>
+
+        {/* PAINEL DE TESTE DE ENVIO */}
+        <div className="mt-8 bg-white rounded-xl shadow-lg p-8">
+            <h2 className="text-xl font-bold mb-6 text-gray-700">Teste de Envio de Mensagem</h2>
+            <form onSubmit={handleSendTestMessage}>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="md:col-span-1">
+                  <label htmlFor="testNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                    Número do WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    id="testNumber"
+                    value={testNumber}
+                    onChange={(e) => setTestNumber(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Ex: 5587999999999"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                   <label htmlFor="testMessage" className="block text-sm font-medium text-gray-700 mb-1">
+                    Mensagem
+                  </label>
+                  <input
+                    type="text"
+                    id="testMessage"
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Digite sua mensagem de teste"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <button
+                  type="submit"
+                  disabled={isSending || status !== 'conectado'}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSending ? 'Enviando...' : 'Enviar Mensagem de Teste'}
+                </button>
+                {testStatus.message && (
+                  <p className={`text-sm font-medium ${
+                    testStatus.type === 'success' ? 'text-green-600' :
+                    testStatus.type === 'error' ? 'text-red-600' : 'text-gray-600'
+                  }`}>
+                    {testStatus.message}
+                  </p>
+                )}
+              </div>
+               {status !== 'conectado' && (
+                  <p className="text-xs text-red-500 mt-2">O WhatsApp precisa estar conectado para enviar mensagens.</p>
+                )}
+            </form>
+        </div>
+
       </div>
     </div>
   );
