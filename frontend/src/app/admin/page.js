@@ -10,8 +10,10 @@ export default function AdminPage() {
   const [qrCode, setQrCode] = useState(null);
   const [logs, setLogs] = useState([]);
 
-  // Use environment variable or default to localhost:5000
-  const API_URL = 'http://localhost:5000';
+  // Em produção usa a mesma origem (proxy via nginx), em dev usa localhost:5000
+  const API_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? window.location.origin // Em produção, usa a mesma origem
+    : 'http://localhost:5000';
 
 
 
