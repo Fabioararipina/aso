@@ -109,11 +109,15 @@ class WhatsAppService {
       }
 
       if (connection === 'open') {
+        console.log('========================================');
         console.log('[WhatsAppService] PRONTO! WhatsApp conectado.');
+        console.log('[WhatsAppService] Setando isReady = true');
+        console.log('========================================');
         this.isReady = true;
         this.qrCode = null;
         this.io.emit('whatsapp-status', { status: 'conectado' });
         this.io.emit('whatsapp-qr', null); // Limpa o QR da tela
+        console.log('[WhatsAppService] Eventos emitidos para o frontend');
       } else if (connection === 'close') {
         this.isReady = false;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
