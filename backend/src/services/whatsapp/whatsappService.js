@@ -93,6 +93,9 @@ class WhatsAppService {
     this.sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
+      // DEBUG: Log completo do update
+      console.log('[WhatsAppService] connection.update:', JSON.stringify({ connection, qr: qr ? 'QR_EXISTS' : null, lastDisconnect: lastDisconnect?.error?.message }));
+
       this.qrCode = qr;
       if (qr) {
         console.log('[WhatsAppService] QR Code gerado');
