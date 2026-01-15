@@ -1,56 +1,139 @@
 # Contexto do Projeto - Essencial Saúde (15/01/2026)
 
-## STATUS ATUAL: Migrando para Baileys
+## STATUS ATUAL: Baileys implementado, problema de logs no servidor
 
-A implementação anterior com `whatsapp-web.js` parou de funcionar. Após investigação, optamos por migrar para a biblioteca **Baileys** para maior estabilidade.
+### O QUE FOI FEITO:
+1. **Migração completa de whatsapp-web.js para Baileys** - O código foi totalmente reescrito
+2. **Teste local funcionando** - Mensagens foram enviadas com sucesso no ambiente local
+3. **Deploy no servidor** - Código atualizado no servidor de produção
+4. **Dependências instaladas** - `@whiskeysockets/baileys`, `pino`, `qrcode`
 
-### SUCESSO! Teste com Baileys bem-sucedido!
-- Foi criado um script de teste interativo em `C:\AGENDAMENTOS\teste-baileys\teste_interativo.js`.
-- O script conseguiu se conectar ao WhatsApp e **enviar mensagens com sucesso**.
-- Foram corrigidos diversos problemas durante o teste, incluindo:
-    - Erro de logger (`logger.child is not a function`).
-    - Sessões corrompidas (`Connection Failure`).
-    - Erros de sintaxe (`await` em função não-assíncrona).
-- O envio de mensagens foi validado e está funcionando.
+### PROBLEMA ATUAL (PENDENTE):
+- **No celular**: Mostra dispositivo conectado
+- **No frontend**: Mostra "conectado" quando atualiza a página
+- **Nos logs do backend**: Nunca aparece `[WhatsAppService] PRONTO! WhatsApp conectado.`
+- **Resultado**: Mensagens NÃO estão sendo enviadas
 
-**O próximo passo é substituir o `whatsappService.js` antigo pela nova implementação com Baileys.**
+O evento `connection === 'open'` parece não estar sendo disparado corretamente, mesmo que a conexão esteja estabelecida. Foram adicionados logs de debug para investigar.
 
 ---
 
-## IMPLEMENTAÇÃO ANTERIOR (Com `whatsapp-web.js`)
+## ARQUIVOS IMPORTANTES ALTERADOS:
 
-Abaixo está o histórico da implementação anterior, que agora será substituída.
+### 1. backend/src/services/whatsapp/whatsappService.js
+- Reescrito completamente para usar Baileys
+- Usa `@whiskeysockets/baileys` ao invés de `whatsapp-web.js`
+- Correção do 9º dígito via `onWhatsApp()` que retorna o JID correto
+- Tratamento de erro 515 (Stream Errored) após pareamento
+- Logs de debug adicionados para investigar conexão
 
-### SUCESSO! Integração com whatsapp-web.js concluída!
+### 2. backend/src/app.js
+- Novos endpoints: `/api/whatsapp/reconnect`, `/api/whatsapp/status`, `/api/whatsapp/enviar`
+- Graceful shutdown implementado
+- Envia status atual para clientes socket ao conectar
+
+### 3. backend/src/config/database.js
+- Alterado para suportar tanto `DB_NAME` (produção) quanto `DB_DATABASE` (local)
+- Linha: `database: process.env.DB_NAME || process.env.DB_DATABASE`
+
+### 4. frontend/src/app/admin/page.js
+- Painel de conexão WhatsApp com exibição de QR Code
+- Socket.IO para receber status em tempo real
+
+### 5. backend/package.json
+- Adicionadas dependências: `@whiskeysockets/baileys`, `pino`, `qrcode`
+- Removida: `whatsapp-web.js` (implícito)
+
+---
+
+## MAPA DE ENVIO DE MENSAGENS:
+
+| Arquivo | Linha | Função |
+|---------|-------|--------|
+| `app.js` | 82 | Endpoint teste `/api/whatsapp/enviar` |
+| `MedicoController.js` | 47 | Notifica pacientes quando médico atrasa |
+| `AgendamentoController.js` | 65 | Confirmação ao criar agendamento |
+| `AgendamentoController.js` | 193 | Confirmação ao confirmar agendamento |
+| `AgendamentoController.js` | 267 | Notificação mudança de status |
+| `AgendamentoController.js` | 320 | Notifica próximo da fila |
+| `AgendamentoController.js` | 362 | Envia prontuário (arquivo) |
+| `confirmacaoService.js` | 76 | Régua cobrança (cron hora/hora) |
+| `npsService.js` | 46 | Pesquisa NPS (comentado no app.js) |
+| `followupService.js` | 41 | Follow-up 15 dias |
+| `mercadoPagoService.js` | 177 | Notificação pagamento |
+
+---
+
+## CONFIGURAÇÃO DO SERVIDOR:
+
+### Variáveis de ambiente (.env no servidor):
 ```
-[WhatsAppService] QR Code gerado
-[WhatsAppService] Carregando: 100% WhatsApp
-[WhatsAppService] Autenticado!
+DB_USER=admin_saude
+DB_HOST=localhost
+DB_NAME=essencial_saude
+DB_PASSWORD=Essencial2026Strong!
+DB_PORT=5432
+```
+
+### Processos PM2:
+- `backend-api` - porta 5000
+- `frontend-next` - Next.js
+
+### Comandos úteis:
+```bash
+# Reiniciar backend
+pm2 restart backend-api
+
+# Ver logs
+pm2 logs backend-api --lines 50
+
+# Limpar sessão do WhatsApp
+rm -rf /var/www/essencialsaude/backend/whatsapp-session-baileys
+pm2 restart backend-api
+
+# Atualizar código
+cd /var/www/essencialsaude && git pull && pm2 restart backend-api
+```
+
+---
+
+## PARA CONTINUAR DEBUGANDO:
+
+1. **Ver logs em tempo real:**
+```bash
+pm2 logs backend-api
+```
+
+2. **Escanear QR e verificar se aparece:**
+```
+========================================
 [WhatsAppService] PRONTO! WhatsApp conectado.
+========================================
 ```
 
-**Evolution API foi substituída por whatsapp-web.js com sucesso!**
+3. **Se conectar mas não logar**, o problema está no evento `connection === 'open'` do Baileys
+
+4. **Testar envio manual:**
+```bash
+curl -X POST http://localhost:5000/api/whatsapp/enviar \
+  -H "Content-Type: application/json" \
+  -d '{"numero":"5587999478492","mensagem":"Teste"}'
+```
 
 ---
 
-## PLANO DE IMPLEMENTAÇÃO (para continuar se o Claude falhar)
+## OUTROS ERROS CONHECIDOS:
 
-### Passo 1: Instalar dependências no backend
-```bash
-cd C:\AGENDAMENTOS\backend
-npm install @whiskeysockets/baileys pino qrcode
-```
+### Erro: `column a.criado_em does not exist`
+- Arquivo: `confirmacaoService.js`
+- O código local usa `created_at`, servidor pode ter versão antiga
+- Verificar se o pull foi feito corretamente
 
-### Passo 2: Parar o Docker da Evolution API (não precisamos mais)
-```bash
-docker stop evolution_api
-docker rm evolution_api
-```
+---
 
-### Passo 3: Reescrever o arquivo `backend/src/services/whatsapp/whatsappService.js`
+## REPOSITÓRIO:
+- GitHub: `https://github.com/Fabioararipina/essencialsaude.git`
+- Branch: `main`
 
-**SUBSTITUIR TODO O CONTEÚDO por este código:**
-
-```javascript
-// O código para o novo whatsappService.js com Baileys será inserido aqui.
-```
+## ÚLTIMO COMMIT:
+- `debug: mais logs no connection open` (f8b5ac2)
