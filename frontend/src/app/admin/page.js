@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import QRCode from 'react-qr-code';
+
 import axios from 'axios';
 
 export default function AdminPage() {
@@ -11,38 +11,132 @@ export default function AdminPage() {
   const [logs, setLogs] = useState([]);
 
   // Use environment variable or default to localhost:5000
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
+  const API_URL = 'http://localhost:5000';
 
-  useEffect(() => {
-    const socket = io(API_URL);
 
-    // Solicita status atual ao conectar
-    // Como o socket conecta depois, talvez o servidor já tenha emitido o evento ready
-    // Idealmente teríamos um endpoint GET /api/whatsapp/status, mas vamos confiar nos eventos por hora
-    
-    socket.on('whatsapp-qr', (qr) => {
-      setQrCode(qr);
-      setStatus('aguardando_leitura');
-      addLog('QR Code recebido. Aguardando leitura...');
-    });
 
-    socket.on('whatsapp-status', (data) => {
-      setStatus(data.status);
-      if (data.status === 'conectado') {
-        setQrCode(null);
-        addLog('WhatsApp Conectado com Sucesso! ✅');
-      } else if (data.status === 'desconectado') {
-        addLog('WhatsApp Desconectado. Tentando reconectar...');
-      } else if (data.status === 'erro') {
-        addLog(`Erro no WhatsApp: ${data.mensagem}`);
-      }
-    });
+          useEffect(() => {
 
-    return () => socket.disconnect();
-  }, []);
 
+
+            const socket = io(API_URL);
+
+
+
+      
+
+
+
+            socket.on('whatsapp-qr', (qr) => {
+
+
+
+              setQrCode(qr);
+
+
+
+              setStatus('aguardando_leitura');
+
+
+
+              addLog('QR Code recebido. Aguardando leitura...');
+
+
+
+            });
+
+
+
+      
+
+
+
+            socket.on('whatsapp-status', (data) => {
+
+
+
+              setStatus(data.status);
+
+
+
+              if (data.status === 'conectado' || data.status === 'open') {
+
+
+
+                setQrCode(null);
+
+
+
+                addLog('WhatsApp Conectado com Sucesso!');
+
+
+
+              } else if (data.status === 'desconectado' || data.status === 'close') {
+
+
+
+                addLog('WhatsApp Desconectado. Tentando reconectar...');
+
+
+
+              } else if (data.status === 'erro') {
+
+
+
+                addLog(`Erro no WhatsApp: ${data.mensagem}`);
+
+
+
+              }
+
+
+
+            });
+
+
+
+      
+
+
+
+            socket.on('evolution-webhook', (data) => {
+
+
+
+              // Nada a fazer aqui por enquanto, apenas retransmitir.
+
+
+
+            });
+
+
+
+      
+
+
+
+            return () => socket.disconnect();
+
+
+
+          }, []);
   const addLog = (msg) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+  };
+
+  const handleReconectar = async () => {
+    try {
+      setStatus('reconectando');
+      setQrCode(null);
+      addLog('Solicitando reconexão...');
+      const response = await axios.post(`${API_URL}/api/whatsapp/reconnect`);
+      if (response.data.success) {
+        addLog('Reconexão iniciada. Aguarde o QR Code...');
+      }
+    } catch (error) {
+      addLog(`Erro ao reconectar: ${error.message}`);
+      setStatus('erro');
+    }
   };
 
   return (
@@ -67,7 +161,7 @@ export default function AdminPage() {
           <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center justify-center min-h-[400px]">
             <h2 className="text-xl font-bold mb-6 text-gray-700">Conexão WhatsApp</h2>
             
-            {status === 'conectado' ? (
+            {status === 'conectado' || status === 'open' ? (
               <div className="text-center">
                 <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,15 +174,32 @@ export default function AdminPage() {
             ) : qrCode ? (
               <div className="text-center">
                 <div className="bg-white p-4 border rounded-lg shadow-inner mb-4 inline-block">
-                  <QRCode value={qrCode} size={256} />
+                  <img
+                    src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`}
+                    alt="QR Code WhatsApp"
+                    width={256}
+                    height={256}
+                  />
                 </div>
                 <p className="text-sm text-gray-500">Abra o WhatsApp {'>'} Aparelhos Conectados {'>'} Conectar Aparelho</p>
+                <button
+                  onClick={handleReconectar}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                >
+                  Gerar Novo QR Code
+                </button>
               </div>
             ) : (
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
                 <p className="text-gray-500">Iniciando cliente WhatsApp...</p>
                 <p className="text-xs text-gray-400 mt-2">Isso pode levar alguns segundos.</p>
+                <button
+                  onClick={handleReconectar}
+                  className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                >
+                  Conectar WhatsApp
+                </button>
               </div>
             )}
           </div>
