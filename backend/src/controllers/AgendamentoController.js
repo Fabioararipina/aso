@@ -107,7 +107,8 @@ ${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/cartao
 
   static async dadosTv(req, res) {
     try {
-      const now = new Date();
+      // Usar fuso horário do Brasil (UTC-3)
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
       const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const lista = await Agendamento.listarParaTv(hoje);
 
@@ -221,8 +222,8 @@ _Por favor, chegue com 10 minutos de antecedência._
     try {
       const { medico_id } = req.params;
       const { data } = req.query;
-      // Se vier data na query usa ela, senão usa hoje
-      const now = new Date();
+      // Se vier data na query usa ela, senão usa hoje (fuso horário Brasil)
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
       const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const dataFiltro = data || hoje; 
       
@@ -269,7 +270,7 @@ Boa consulta!
         });
 
         // 2. Avisa os PRÓXIMOS da fila (até 4 pessoas)
-        const now = new Date();
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
         const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const tempoMedio = await Agendamento.calcularTempoMedio(agendamentoCompleto.medico_id);
         
