@@ -71,6 +71,12 @@ app.get('/api/whatsapp/status', (req, res) => {
 
 // Endpoint para enviar mensagem de teste
 app.post('/api/whatsapp/enviar', async (req, res) => {
+  // FIX: Adiciona checagem para previnir crash se o corpo da requisição for nulo.
+  if (!req.body) {
+    console.log('[API] Recebida solicitação para /api/whatsapp/enviar sem corpo. Ignorando.');
+    return res.status(400).json({ success: false, message: 'Corpo da requisição ausente.' });
+  }
+
   console.log(`[API] Recebida solicitação para enviar mensagem para: ${req.body.numero}`);
   const { numero, mensagem } = req.body;
 
