@@ -7,12 +7,16 @@ import axios from 'axios';
 export default function TvPage() {
   const [lista, setLista] = useState([]);
   const [chamadaAtual, setChamadaAtual] = useState(null);
-  
+
   // Estados do Carrossel de Mídia
   const [midias, setMidias] = useState([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [weather, setWeather] = useState(null); 
+  const [weather, setWeather] = useState(null);
   const [news, setNews] = useState(null); // Estado para notícias
+
+  // Estado para o relógio (evita erro de hidratação)
+  const [currentTime, setCurrentTime] = useState('--:--');
+  const [currentDate, setCurrentDate] = useState('');
 
   // Use environment variable or default to localhost:5000
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
@@ -143,7 +147,17 @@ export default function TvPage() {
     });
 
     const interval = setInterval(fetchDados, 60000);
-    return () => { socket.disconnect(); clearInterval(interval); document.removeEventListener('click', unlockAudio); };
+
+    // Relógio atualizado a cada segundo (roda apenas no cliente)
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      setCurrentDate(now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }));
+    };
+    updateClock();
+    const clockInterval = setInterval(updateClock, 1000);
+
+    return () => { socket.disconnect(); clearInterval(interval); clearInterval(clockInterval); document.removeEventListener('click', unlockAudio); };
   }, []);
 
   useEffect(() => {
@@ -180,10 +194,10 @@ export default function TvPage() {
         </div>
         <div className="text-right">
           <div className="text-6xl font-bold font-mono">
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {currentTime}
           </div>
           <div className="text-blue-300 text-xl mt-1">
-            {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
+            {currentDate}
           </div>
         </div>
       </header>
