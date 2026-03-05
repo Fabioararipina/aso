@@ -1,24 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 
 export default function TvPage() {
   const [lista, setLista] = useState([]);
   const [chamadaAtual, setChamadaAtual] = useState(null);
+  const [avisoEncaixe, setAvisoEncaixe] = useState(null); // { medico_nome, tempoMedio }
 
-  // Estados do Carrossel de Mídia
   const [midias, setMidias] = useState([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [weather, setWeather] = useState(null);
-  const [news, setNews] = useState(null); // Estado para notícias
+  const [news, setNews] = useState(null);
 
-  // Estado para o relógio (evita erro de hidratação)
   const [currentTime, setCurrentTime] = useState('--:--');
   const [currentDate, setCurrentDate] = useState('');
 
-  // Use environment variable or default to localhost:5000
+  // Ref para manter o AudioContext vivo entre renders
+  const audioCtxRef = useRef(null);
+  const audioUnlocked = useRef(false);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   const fetchDados = async () => {
@@ -33,9 +35,7 @@ export default function TvPage() {
   const fetchMidias = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/tv-midias`);
-      if (res.data.length > 0) {
-        setMidias(res.data);
-      }
+      if (res.data.length > 0) setMidias(res.data);
     } catch (e) { console.error('Erro midias', e); }
   };
 
@@ -43,10 +43,9 @@ export default function TvPage() {
     try {
       const cidadeLimpa = cidade.split(' - ')[0].trim();
       const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${cidadeLimpa}&count=1&language=pt&format=json`);
-      if (!geoRes.data.results) { setWeather({ cidade: cidade, temp: '--', code: 0, humidade: '--' }); return; }
+      if (!geoRes.data.results) { setWeather({ cidade, temp: '--', code: 0, humidade: '--' }); return; }
       const { latitude, longitude, name, admin1 } = geoRes.data.results[0];
       const weatherRes = await axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=America/Sao_Paulo`);
-      
       setWeather({
         cidade: `${name} - ${admin1 || ''}`,
         temp: weatherRes.data.current.temperature_2m,
@@ -56,22 +55,15 @@ export default function TvPage() {
         max: weatherRes.data.daily.temperature_2m_max[0],
         min: weatherRes.data.daily.temperature_2m_min[0]
       });
-    } catch (e) { setWeather({ cidade: cidade, temp: 'Erro', code: 0, humidade: 'Erro' }); }
+    } catch (e) { setWeather({ cidade, temp: 'Erro', code: 0, humidade: 'Erro' }); }
   };
 
   const fetchNews = async (rssUrl) => {
     try {
-      const urlLimpa = rssUrl.trim();
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlLimpa)}`;
-      const res = await axios.get(apiUrl);
+      const res = await axios.get(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl.trim())}`);
       if (res.data.items && res.data.items.length > 0) {
-        const randomIndex = Math.floor(Math.random() * Math.min(5, res.data.items.length));
-        const item = res.data.items[randomIndex];
-        setNews({
-          titulo: item.title,
-          imagem: item.enclosure?.link || item.thumbnail || null,
-          fonte: res.data.feed.title
-        });
+        const item = res.data.items[Math.floor(Math.random() * Math.min(5, res.data.items.length))];
+        setNews({ titulo: item.title, imagem: item.enclosure?.link || item.thumbnail || null, fonte: res.data.feed.title });
       }
     } catch (e) { console.error('Erro news', e); }
   };
@@ -87,59 +79,122 @@ export default function TvPage() {
     return { icon: '🌡️', text: 'Clima Variável' };
   };
 
+  const getAudioCtx = () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return null;
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+    if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  };
+
   const playAlertSound = () => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-        }
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = 440; 
-        gain.gain.value = 0.5;
-        osc.start();
-        setTimeout(() => { osc.frequency.value = 554.37; }, 400); 
-        setTimeout(() => { osc.stop(); }, 1200);
-      }
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 440;
+      gain.gain.value = 0.5;
+      osc.start();
+      setTimeout(() => { osc.frequency.value = 554.37; }, 400);
+      setTimeout(() => { osc.stop(); }, 1200);
     } catch (e) { console.error('Erro som', e); }
   };
 
+  // Fallback via Google Translate TTS — funciona em qualquer browser com áudio (inclusive FireTV)
+  const speakFallback = (text) => {
+    try {
+      const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=pt-BR&client=gtx`;
+      const audio = new Audio(url);
+      audio.play().catch(e => console.error('Erro TTS fallback', e));
+    } catch (e) { console.error('Erro TTS fallback', e); }
+  };
+
   const speakText = (text) => {
-    if ('speechSynthesis' in window) {
+    // FireTV/Silk: speechSynthesis existe mas não emite som — vai direto pro Google TTS
+    const isSilk = /Silk|AFTM|AFTB|AFTS|AFTT|AFTRS|AFTEK/i.test(navigator.userAgent);
+    if (isSilk || !('speechSynthesis' in window)) {
+      speakFallback(text);
+      return;
+    }
+
+    // Chrome/outros: usa Web Speech API nativa
+    try {
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'pt-BR';
-      utterance.rate = 0.9;
+      utterance.rate = 0.85;
+      utterance.volume = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const ptVoice = voices.find(v => v.lang.startsWith('pt')) || voices[0];
+      if (ptVoice) utterance.voice = ptVoice;
       window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      speakFallback(text);
     }
   };
 
   useEffect(() => {
-    const unlockAudio = () => {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        ctx.resume().then(() => {
-          console.log('AudioContext resumed!');
-        });
-      }
-      document.removeEventListener('click', unlockAudio);
+    // Força viewport correto no Silk/FireTV — evita zoom indesejado
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'viewport';
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no');
+
+    // Fullscreen automático — resolve a barra do browser no FireTV
+    const enterFullscreen = () => {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
     };
-    document.addEventListener('click', unlockAudio);
-    
-    fetchDados(); 
-    fetchMidias(); 
+    enterFullscreen();
+    document.addEventListener('click', enterFullscreen, { once: true });
+
+    // Unlock de áudio e vozes no primeiro toque/clique — essencial para FireTV
+    const unlockAudio = () => {
+      if (audioUnlocked.current) return;
+      audioUnlocked.current = true;
+      const ctx = getAudioCtx();
+      if (ctx) ctx.resume();
+      // Pré-carrega as vozes de síntese
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        // Chrome/Silk às vezes precisa de uma utterance vazia para desbloquear
+        const u = new SpeechSynthesisUtterance('');
+        u.volume = 0;
+        u.lang = 'pt-BR';
+        window.speechSynthesis.speak(u);
+      }
+    };
+    // Tenta desbloquear logo na montagem (funciona no Chrome)
+    // e também no primeiro clique/toque (necessário no FireTV)
+    setTimeout(unlockAudio, 300);
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+
+    fetchDados();
+    fetchMidias();
 
     const socket = io(API_URL);
     socket.on('agendamento-atualizado', () => fetchDados());
     socket.on('agendamento-confirmado', () => fetchDados());
     socket.on('novo-agendamento', () => fetchDados());
+    socket.on('encaixe-adicionado', ({ agendamento, tempoMedio }) => {
+      fetchDados();
+      setAvisoEncaixe({ medico_nome: agendamento.medico_nome, tempoMedio });
+      playAlertSound();
+      speakText(`Atenção! Um atendimento prioritário foi encaixado na agenda do Doutor ${agendamento.medico_nome}. O tempo de espera pode aumentar aproximadamente ${tempoMedio} minutos.`);
+      setTimeout(() => setAvisoEncaixe(null), 12000);
+    });
+
     socket.on('chamar-paciente', (agendamento) => {
-      console.log('Recebendo chamada de paciente:', agendamento);
       setChamadaAtual(agendamento);
       playAlertSound();
       speakText(`Paciente ${agendamento.paciente_nome}, comparecer ao consultório do Doutor ${agendamento.medico_nome}`);
@@ -148,7 +203,6 @@ export default function TvPage() {
 
     const interval = setInterval(fetchDados, 60000);
 
-    // Relógio atualizado a cada segundo (roda apenas no cliente)
     const updateClock = () => {
       const now = new Date();
       setCurrentTime(now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
@@ -157,146 +211,210 @@ export default function TvPage() {
     updateClock();
     const clockInterval = setInterval(updateClock, 1000);
 
-    return () => { socket.disconnect(); clearInterval(interval); clearInterval(clockInterval); document.removeEventListener('click', unlockAudio); };
+    return () => {
+      socket.disconnect();
+      clearInterval(interval);
+      clearInterval(clockInterval);
+      document.removeEventListener('click', unlockAudio);
+    };
   }, []);
 
   useEffect(() => {
     if (midias.length === 0) return;
-
     const currentSlide = midias[currentSlideIndex];
-    
-    if (currentSlide.tipo === 'TEMPO' && !weather) {
-      fetchWeather(currentSlide.conteudo);
-    } else if (currentSlide.tipo === 'NOTICIA' && !news) {
-      fetchNews(currentSlide.conteudo);
-    }
-
+    if (currentSlide.tipo === 'TEMPO' && !weather) fetchWeather(currentSlide.conteudo);
+    else if (currentSlide.tipo === 'NOTICIA' && !news) fetchNews(currentSlide.conteudo);
     const timer = setTimeout(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
-      setWeather(null); 
-      setNews(null); 
+      setWeather(null);
+      setNews(null);
     }, currentSlide.duracao * 1000);
-
     return () => clearTimeout(timer);
   }, [currentSlideIndex, midias]);
 
+  // Padding de safe area — ajustável via ?safe=N (padrão: 3)
+  const safeArea = (() => {
+    if (typeof window === 'undefined') return '3vh 4vw';
+    const params = new URLSearchParams(window.location.search);
+    const s = parseFloat(params.get('safe')) || 3;
+    return `${s}vh ${s * 1.33}vw`;
+  })();
+
+  // Tamanhos de fonte em vw — escalam proporcionalmente com a largura da tela
+  const fs = {
+    xs:   { fontSize: '1vw' },
+    sm:   { fontSize: '1.2vw' },
+    base: { fontSize: '1.4vw' },
+    lg:   { fontSize: '1.7vw' },
+    xl:   { fontSize: '2vw' },
+    xl2:  { fontSize: '2.5vw' },
+    xl3:  { fontSize: '3vw' },
+    xl4:  { fontSize: '4vw' },
+    xl5:  { fontSize: '5vw' },
+  };
+
+  const statusStyle = (status) => {
+    if (status === 'EM_ATENDIMENTO') return { background: '#2563eb', color: '#fff' };
+    if (status === 'PRESENTE') return { background: '#dcfce7', color: '#15803d' };
+    return { background: '#f3f4f6', color: '#6b7280' };
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col overflow-hidden font-sans">
-      
-      {/* HEADER */}
-      <header className="bg-blue-900 p-8 shadow-lg flex justify-between items-center z-10 border-b border-blue-800">
-        <div className="flex items-center gap-6">
-          <img src="/logo.png" alt="Essencial Saúde" className="h-24 object-contain bg-white rounded-lg p-2" />
-          <div>
-            <h1 className="text-4xl font-bold tracking-wider hidden">ESSENCIAL SAÚDE</h1>
-            <p className="text-blue-300 text-xl uppercase tracking-widest mt-1">Painel de Atendimento</p>
-          </div>
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#111827',
+      color: '#fff',
+      fontFamily: 'sans-serif',
+      boxSizing: 'border-box',
+      padding: safeArea,
+    }}>
+
+      {/* ── HEADER ── */}
+      <header style={{
+        background: '#1e3a8a',
+        padding: '1vh 2vw 1vh 2vw',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+        borderBottom: '1px solid #1e40af',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5vw' }}>
+          <img
+            src="/logo.png"
+            alt="Essencial Saúde"
+            style={{ height: '8vh', background: '#fff', borderRadius: 8, padding: 6, objectFit: 'contain' }}
+          />
+          <p style={{ ...fs.base, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+            Painel de Atendimento
+          </p>
         </div>
-        <div className="text-right">
-          <div className="text-6xl font-bold font-mono">
-            {currentTime}
-          </div>
-          <div className="text-blue-300 text-xl mt-1">
-            {currentDate}
-          </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ ...fs.xl4, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>{currentTime}</div>
+          <div style={{ ...fs.sm, color: '#93c5fd', marginTop: 4 }}>{currentDate}</div>
         </div>
       </header>
 
-      {/* CONTEÚDO */}
-      <main className="flex-1 p-6 overflow-hidden flex gap-6">
-        
-        {/* COLUNA ESQUERDA: MÍDIA / DESTAQUES */}
-        <div className="w-1/4 flex flex-col gap-6">
-          <div className="flex-1 bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden relative">
-            
+      {/* ── CONTEÚDO ── */}
+      <main style={{
+        flex: 1,
+        display: 'flex',
+        gap: '1vw',
+        padding: '1vh 2vw 1vh 1vw',
+        overflow: 'hidden',
+        minHeight: 0,
+      }}>
+
+        {/* COLUNA ESQUERDA: MÍDIA */}
+        <div style={{ width: '22vw', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            flex: 1,
+            background: '#1f2937',
+            borderRadius: 16,
+            border: '1px solid #374151',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
             {midias.length === 0 ? (
-              // DEFAULT SE NÃO TIVER MÍDIA
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-gray-800 to-gray-900">
-                <span className="text-8xl mb-6">🌳</span>
-                <h2 className="text-4xl font-bold text-green-400 mb-4">Cartão Essencial</h2>
-                <p className="text-2xl text-gray-300">Descontos exclusivos em exames e consultas.</p>
-                <div className="mt-12 bg-white p-4 rounded-xl inline-block shadow-2xl">
-                  {/* Placeholder QR Code */}
-                  <div className="w-48 h-48 bg-gray-200 flex items-center justify-center text-black font-bold text-lg">QR CODE</div>
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+                padding: '2vw', background: 'linear-gradient(135deg,#1f2937,#111827)',
+              }}>
+                <span style={{ fontSize: '5vw', marginBottom: '1vh' }}>🌳</span>
+                <h2 style={{ ...fs.xl, fontWeight: 700, color: '#4ade80', marginBottom: '1vh' }}>Cartão Essencial</h2>
+                <p style={{ ...fs.sm, color: '#d1d5db' }}>Descontos exclusivos em exames e consultas.</p>
+                <div style={{ marginTop: '2vh', background: '#fff', padding: 12, borderRadius: 12 }}>
+                  <div style={{ width: '10vw', height: '10vw', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 700, ...fs.sm }}>
+                    QR CODE
+                  </div>
                 </div>
-                <p className="mt-4 text-lg text-gray-500">Escaneie para saber mais</p>
               </div>
             ) : (
-              // SLIDES
-              <div className="absolute inset-0 w-full h-full">
+              <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+
                 {midias[currentSlideIndex].tipo === 'IMAGEM' && (
-                  <img 
-                    src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} 
-                    className="w-full h-full object-cover animate-fade-in"
+                  <img
+                    src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 )}
+
                 {midias[currentSlideIndex].tipo === 'VIDEO' && (
-                   <video 
-                     src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`} 
-                     className="w-full h-full object-cover animate-fade-in"
-                     autoPlay 
-                     muted 
-                     loop
-                   />
+                  <video
+                    src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    autoPlay
+                    onEnded={() => {
+                      setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
+                      setWeather(null);
+                      setNews(null);
+                    }}
+                  />
                 )}
+
                 {midias[currentSlideIndex].tipo === 'TEMPO' && (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-800 animate-fade-in text-white p-6 text-center shadow-inner">
+                  <div style={{
+                    width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    background: 'linear-gradient(to bottom, #3b82f6, #1e40af)',
+                    padding: '2vw', textAlign: 'center', boxSizing: 'border-box',
+                  }}>
                     {weather ? (
                       <>
-                        <h2 className="text-3xl font-bold mb-2 drop-shadow-md">{weather.cidade}</h2>
-                        
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="text-8xl drop-shadow-lg filter">{getWeatherInfo(weather.code).icon}</div>
-                          <div className="text-left">
-                            <div className="text-7xl font-bold leading-none">{Math.round(weather.temp)}°</div>
-                            <div className="text-xl font-medium opacity-90">{getWeatherInfo(weather.code).text}</div>
+                        <h2 style={{ ...fs.base, fontWeight: 700, marginBottom: '1vh' }}>{weather.cidade}</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1vw', marginBottom: '1.5vh' }}>
+                          <span style={{ fontSize: '4vw' }}>{getWeatherInfo(weather.code).icon}</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ ...fs.xl3, fontWeight: 900, lineHeight: 1 }}>{Math.round(weather.temp)}°</div>
+                            <div style={{ ...fs.sm, opacity: 0.9 }}>{getWeatherInfo(weather.code).text}</div>
                           </div>
                         </div>
-
-                        <div className="grid grid-cols-3 gap-4 w-full bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                          <div>
-                            <p className="text-xs uppercase opacity-70">Umidade</p>
-                            <p className="font-bold text-xl">{weather.humidade}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase opacity-70">Vento</p>
-                            <p className="font-bold text-xl">{weather.vento} km/h</p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase opacity-70">Min / Max</p>
-                            <p className="font-bold text-xl">{Math.round(weather.min)}° / {Math.round(weather.max)}°</p>
-                          </div>
+                        <div style={{
+                          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                          gap: '0.5vw', width: '100%',
+                          background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '1vh 0.5vw',
+                        }}>
+                          {[['Umidade', `${weather.humidade}%`], ['Vento', `${weather.vento} km/h`], ['Min/Max', `${Math.round(weather.min)}°/${Math.round(weather.max)}°`]].map(([label, val]) => (
+                            <div key={label}>
+                              <p style={{ ...fs.xs, textTransform: 'uppercase', opacity: 0.7 }}>{label}</p>
+                              <p style={{ ...fs.sm, fontWeight: 700 }}>{val}</p>
+                            </div>
+                          ))}
                         </div>
                       </>
-                    ) : (
-                      <div className="animate-spin text-4xl">↻ Carregando...</div>
-                    )}
+                    ) : <span style={fs.base}>Carregando...</span>}
                   </div>
                 )}
 
                 {midias[currentSlideIndex].tipo === 'NOTICIA' && (
-                  <div className="w-full h-full flex flex-col items-center justify-end bg-black animate-fade-in text-white relative">
+                  <div style={{
+                    width: '100%', height: '100%', display: 'flex',
+                    flexDirection: 'column', justifyContent: 'flex-end',
+                    background: '#000', position: 'relative', overflow: 'hidden',
+                  }}>
                     {news ? (
                       <>
                         {news.imagem && (
-                          <div className="absolute inset-0 opacity-60">
-                            <img src={news.imagem} className="w-full h-full object-cover" />
+                          <div style={{ position: 'absolute', inset: 0, opacity: 0.6 }}>
+                            <img src={news.imagem} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-                        
-                        <div className="relative z-10 p-8 text-left w-full">
-                          <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 uppercase rounded mb-2 inline-block">
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #000 40%, transparent)' }}></div>
+                        <div style={{ position: 'relative', zIndex: 10, padding: '1.5vw', textAlign: 'left' }}>
+                          <span style={{ background: '#dc2626', color: '#fff', ...fs.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase', marginBottom: 8, display: 'inline-block' }}>
                             {news.fonte || 'Notícia'}
                           </span>
-                          <h2 className="text-2xl font-bold leading-tight drop-shadow-lg line-clamp-4">
-                            {news.titulo}
-                          </h2>
+                          <h2 style={{ ...fs.sm, fontWeight: 700, lineHeight: 1.3 }}>{news.titulo}</h2>
                         </div>
                       </>
                     ) : (
-                      <div className="flex items-center justify-center h-full w-full">
-                        <span className="animate-spin text-4xl">↻</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <span style={fs.xl}>↻</span>
                       </div>
                     )}
                   </div>
@@ -304,91 +422,141 @@ export default function TvPage() {
               </div>
             )}
 
-            {/* PROGRESS BAR DO SLIDE */}
-            <div className="absolute bottom-0 left-0 h-2 bg-green-500 transition-all duration-[1000ms] ease-linear w-full opacity-50"></div>
+            {/* PROGRESS BAR */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, height: 4, background: '#22c55e', width: '100%', opacity: 0.6 }}></div>
           </div>
         </div>
 
         {/* COLUNA DIREITA: LISTA DE ESPERA */}
-        <div className="w-3/4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-          <div className="bg-gray-100 p-6 border-b flex justify-between text-gray-500 font-bold text-xl uppercase tracking-wider">
-            <span className="w-28">Horário</span>
-            <span className="flex-1 ml-4">Paciente</span>
-            <span className="w-80">Médico</span>
-            <span className="w-56 text-center">Status</span>
-            <span className="w-32 text-right">Previsão</span>
+        <div style={{ flex: 1, minWidth: 0, background: '#fff', borderRadius: 20, display: 'flex', flexDirection: 'column', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', overflow: 'hidden' }}>
+
+          {/* Cabeçalho */}
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            background: '#f3f4f6', borderBottom: '1px solid #e5e7eb',
+            padding: '1.2vh 1.5vw', flexShrink: 0,
+          }}>
+            <span style={{ ...fs.sm, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', width: '10%' }}>Horário</span>
+            <span style={{ ...fs.sm, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', width: '28%' }}>Paciente</span>
+            <span style={{ ...fs.sm, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', width: '27%', paddingLeft: '1vw' }}>Médico</span>
+            <span style={{ ...fs.sm, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', width: '20%', textAlign: 'center' }}>Status</span>
+            <span style={{ ...fs.sm, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', width: '15%', textAlign: 'right' }}>Previsão</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          {/* Linhas */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             {lista.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-gray-400 text-3xl">
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', ...fs.lg }}>
                 Agenda vazia por enquanto.
               </div>
             ) : (
-              <table className="w-full">
-                <tbody>
-                  {lista.map((item) => (
-                    <tr key={item.id} className={`border-b border-gray-100 last:border-0 transition-colors ${item.status === 'EM_ATENDIMENTO' ? 'bg-blue-50' : ''}`}>
-                      <td className="p-6 text-gray-500 font-mono font-bold text-3xl w-28">
-                        {item.horario.slice(0,5)}
-                      </td>
-                      <td className="p-6 ml-4">
-                        <span className="block text-4xl font-black text-gray-800 uppercase tracking-tight">{item.paciente_nome}</span>
-                      </td>
-                      <td className="p-6 w-80">
-                        <div className="flex items-center gap-4">
-                          {item.foto_path ? (
-                            <img src={`${API_URL}/uploads/medicos/${item.foto_path}`} className="w-20 h-20 rounded-full object-cover border-2 shadow-sm" />
-                          ) : (
-                            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-2xl">Dr</div>
-                          )}
-                          <span className="text-2xl font-bold text-gray-700 truncate w-56">{item.medico_nome}</span>
-                        </div>
-                      </td>
-                      <td className="p-6 w-56 text-center">
-                        <span className={`
-                          px-4 py-2 rounded-full text-lg font-black uppercase shadow-sm block w-full
-                          ${item.status === 'EM_ATENDIMENTO' ? 'bg-blue-600 text-white animate-pulse' : ''}
-                          ${item.status === 'PRESENTE' ? 'bg-green-100 text-green-700' : ''}
-                          ${item.status === 'CONFIRMADO' ? 'bg-gray-100 text-gray-500' : ''}
-                        `}>
-                          {item.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="p-6 w-32 text-right font-mono font-black text-4xl text-blue-600">
-                        {item.previsao}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              lista.map((item) => (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center',
+                  padding: '1.5vh 1.5vw',
+                  borderBottom: '1px solid #f3f4f6',
+                  background: item.status === 'EM_ATENDIMENTO' ? '#eff6ff' : '#fff',
+                }}>
+                  {/* Horário */}
+                  <span style={{ ...fs.xl, color: '#6b7280', fontFamily: 'monospace', fontWeight: 700, width: '10%' }}>
+                    {item.horario.slice(0, 5)}
+                  </span>
+                  {/* Paciente */}
+                  <span style={{ ...fs.xs, color: '#111827', fontWeight: 900, textTransform: 'uppercase', width: '28%', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '0.5vw' }}>
+                    {item.tipo_consulta === 'ENCAIXE' && (
+                      <span style={{ fontSize: '1.2vw', background: '#dc2626', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 900, flexShrink: 0 }}>🚨 URGENTE</span>
+                    )}
+                    {item.paciente_nome}
+                  </span>
+                  {/* Médico */}
+                  <div style={{ width: '27%', display: 'flex', alignItems: 'center', gap: '0.8vw', paddingLeft: '1vw' }}>
+                    {item.foto_path ? (
+                      <img
+                        src={`${API_URL}/uploads/medicos/${item.foto_path}`}
+                        style={{ width: '4vw', height: '4vw', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{ width: '4vw', height: '4vw', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', ...fs.sm, flexShrink: 0 }}>Dr</div>
+                    )}
+                    <span style={{ ...fs.base, fontWeight: 700, color: '#374151', lineHeight: 1.3 }}>{item.medico_nome}</span>
+                  </div>
+                  {/* Status */}
+                  <div style={{ width: '20%', textAlign: 'center' }}>
+                    <span style={{
+                      ...fs.xs, fontWeight: 900, textTransform: 'uppercase',
+                      borderRadius: 999, padding: '0.5vh 1vw', display: 'inline-block',
+                      ...statusStyle(item.status),
+                    }}>
+                      {item.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  {/* Previsão */}
+                  <span style={{ ...fs.xl, fontFamily: 'monospace', fontWeight: 900, color: '#2563eb', width: '15%', textAlign: 'right' }}>
+                    {item.previsao}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </div>
 
       </main>
 
-      {/* OVERLAY DE CHAMADA (TELA CHEIA) */}
-      {chamadaAtual && (
-        <div className="fixed inset-0 z-50 bg-blue-700 flex flex-col items-center justify-center animate-pulse-fast">
-          <h1 className="text-6xl font-bold text-white mb-12 uppercase tracking-[0.2em] opacity-90">Por favor, dirija-se ao consultório</h1>
-          <div className="bg-white text-blue-900 px-24 py-16 rounded-[4rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] mb-16 transform scale-110 border-[12px] border-blue-300">
-            <h2 className="text-9xl font-black text-center leading-tight">{chamadaAtual.paciente_nome}</h2>
+      {/* ── OVERLAY DE ENCAIXE ── */}
+      {avisoEncaixe && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 40,
+          background: 'rgba(185,28,28,0.92)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          animation: 'pulse 1.5s infinite',
+        }}>
+          <div style={{ fontSize: '5vw', marginBottom: '2vh' }}>🚨</div>
+          <h1 style={{ ...fs.xl3, fontWeight: 900, color: '#fff', marginBottom: '1vh', textAlign: 'center' }}>
+            ENCAIXE DE URGÊNCIA
+          </h1>
+          <p style={{ ...fs.xl, color: '#fecaca', marginBottom: '2vh', textAlign: 'center' }}>
+            Dr(a). {avisoEncaixe.medico_nome}
+          </p>
+          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: '1.5vh 3vw', textAlign: 'center' }}>
+            <p style={{ ...fs.lg, color: '#fff' }}>
+              ⏱️ Tempo de espera pode aumentar ~<strong>{avisoEncaixe.tempoMedio} min</strong>
+            </p>
+            <p style={{ ...fs.base, color: '#fca5a5', marginTop: '0.5vh' }}>
+              Pedimos desculpas pelo transtorno.
+            </p>
           </div>
-          <div className="flex items-center gap-10 bg-blue-800 px-16 py-10 rounded-3xl shadow-2xl">
+        </div>
+      )}
+
+      {/* ── OVERLAY DE CHAMADA ── */}
+      {chamadaAtual && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50, background: '#1d4ed8',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          animation: 'pulse 1.5s infinite',
+        }}>
+          <h1 style={{ ...fs.xl2, fontWeight: 700, color: '#fff', marginBottom: '2vh', textTransform: 'uppercase', letterSpacing: '0.2em', opacity: 0.9 }}>
+            Por favor, dirija-se ao consultório
+          </h1>
+          <div style={{ background: '#fff', color: '#1e3a8a', padding: '3vh 5vw', borderRadius: '2vw', marginBottom: '2vh', border: '8px solid #93c5fd' }}>
+            <h2 style={{ ...fs.xl5, fontWeight: 900, textAlign: 'center', lineHeight: 1.1 }}>{chamadaAtual.paciente_nome}</h2>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2vw', background: '#1e40af', padding: '2vh 3vw', borderRadius: '1.5vw' }}>
             {chamadaAtual.foto_path && (
-               <img src={`${API_URL}/uploads/medicos/${chamadaAtual.foto_path}`} className="w-48 h-48 rounded-full border-8 border-white shadow-lg" />
+              <img src={`${API_URL}/uploads/medicos/${chamadaAtual.foto_path}`} style={{ width: '10vw', height: '10vw', borderRadius: '50%', border: '4px solid #fff', objectFit: 'cover' }} />
             )}
-            <div className="text-left">
-              <p className="text-blue-300 text-3xl uppercase font-bold mb-2 tracking-widest">Médico(a)</p>
-              <h2 className="text-7xl font-bold text-white leading-none">{chamadaAtual.medico_nome}</h2>
+            <div>
+              <p style={{ ...fs.sm, color: '#93c5fd', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.15em' }}>Médico(a)</p>
+              <h2 style={{ ...fs.xl3, fontWeight: 700, color: '#fff' }}>{chamadaAtual.medico_nome}</h2>
             </div>
           </div>
         </div>
       )}
-      
+
       <style jsx global>{`
-        .animate-pulse-fast { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100vw; height: 100vh; overflow: hidden; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.85; } }
       `}</style>
     </div>
   );
