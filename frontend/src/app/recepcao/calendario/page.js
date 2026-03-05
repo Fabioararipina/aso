@@ -9,12 +9,18 @@ export default function CalendarioRecepcaoPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [medicos, setMedicos] = useState([]);
   const [agendamentos, setAgendamentos] = useState([]);
+  const [slotsPorMedico, setSlotsPorMedico] = useState({}); // { medicoId: ['07:00', '07:20', ...] }
   const [loading, setLoading] = useState(true);
 
-  // Estados do Modal
+  // Estados do Modal de agendamento
   const [showModal, setShowModal] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState(null); // { medicoId, hora, agendamento? }
+  const [selectedSlot, setSelectedSlot] = useState(null);
   const [form, setForm] = useState({ nome: '', whatsapp: '', observacoes: '' });
+
+  // Estados do Modal de Encaixe
+  const [showEncaixeModal, setShowEncaixeModal] = useState(false);
+  const [formEncaixe, setFormEncaixe] = useState({ nome: '', whatsapp: '', medico_id: '', observacoes: '' });
+  const [loadingEncaixe, setLoadingEncaixe] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
@@ -32,6 +38,17 @@ export default function CalendarioRecepcaoPage() {
       ]);
       setMedicos(resMedicos.data);
       setAgendamentos(resAgendamentos.data);
+
+      // Busca slots reais de cada médico (por ID) para saber quais linhas mostrar e quais bloquear
+      const slotsPromises = resMedicos.data.map(m =>
+        axios.get(`${API_URL}/api/medicos/${m.id}/disponiveis?data=${dataStr}`)
+          .then(r => ({ id: m.id, slots: r.data }))
+          .catch(() => ({ id: m.id, slots: [] }))
+      );
+      const resultados = await Promise.all(slotsPromises);
+      const mapa = {};
+      resultados.forEach(({ id, slots }) => { mapa[id] = slots; });
+      setSlotsPorMedico(mapa);
     } catch (error) {
       console.error(error);
     } finally {
@@ -40,13 +57,17 @@ export default function CalendarioRecepcaoPage() {
   };
 
   const getAgendamento = (medicoId, hora) => {
-    return agendamentos.find(a => a.medico_id === medicoId && a.horario.startsWith(hora));
+    const matches = agendamentos.filter(a => a.medico_id === medicoId && a.horario.startsWith(hora));
+    // Prioriza agendamento ativo sobre cancelado; se só houver cancelados, retorna null (slot livre)
+    return matches.find(a => a.status !== 'CANCELADO') || null;
   };
 
   const handleOpenModal = (medicoId, hora, agendamento = null) => {
-    setSelectedSlot({ medicoId, hora, agendamento });
-    if (agendamento) {
-      setForm({ nome: agendamento.paciente_nome, whatsapp: agendamento.whatsapp, observacoes: agendamento.observacoes || '' });
+    // Slot cancelado é tratado como livre para novo agendamento
+    const agendamentoAtivo = agendamento?.status === 'CANCELADO' ? null : agendamento;
+    setSelectedSlot({ medicoId, hora, agendamento: agendamentoAtivo });
+    if (agendamentoAtivo) {
+      setForm({ nome: agendamentoAtivo.paciente_nome, whatsapp: agendamentoAtivo.whatsapp, observacoes: agendamentoAtivo.observacoes || '' });
     } else {
       setForm({ nome: '', whatsapp: '', observacoes: '' });
     }
@@ -59,6 +80,21 @@ export default function CalendarioRecepcaoPage() {
       setShowModal(false);
       fetchDados();
     } catch (e) { alert('Erro ao atualizar status'); }
+  };
+
+  const handleEncaixar = async (e) => {
+    e.preventDefault();
+    setLoadingEncaixe(true);
+    try {
+      await axios.post(`${API_URL}/api/agendamentos/encaixe`, formEncaixe);
+      setShowEncaixeModal(false);
+      setFormEncaixe({ nome: '', whatsapp: '', medico_id: '', observacoes: '' });
+      fetchDados();
+    } catch (error) {
+      alert('Erro ao encaixar: ' + (error.response?.data?.erro || error.message));
+    } finally {
+      setLoadingEncaixe(false);
+    }
   };
 
   const handleAgendarBalcao = async (e) => {
@@ -78,25 +114,36 @@ export default function CalendarioRecepcaoPage() {
     } catch (e) { alert('Erro ao agendar'); }
   };
 
+  // Verifica se um médico específico tem aquele horário disponível (ou ocupado por agendamento)
+  const medicoTemSlot = (medicoId, hora) => {
+    const slots = slotsPorMedico[medicoId] || [];
+    const temSlotLivre = slots.includes(hora);
+    const temAgendamentoAtivo = agendamentos.some(a => a.medico_id === medicoId && a.horario.startsWith(hora) && a.status !== 'CANCELADO');
+    return temSlotLivre || temAgendamentoAtivo;
+  };
+
   // --- GERAÇÃO DINÂMICA DE LINHAS (SLOTS) ---
-  // Combina horas padrão (30 em 30min) + Horários exatos dos agendamentos existentes
   const gerarLinhasDoTempo = () => {
     const temposSet = new Set();
-    
-    // 1. Adiciona grade padrão (para não ficar vazio) - 07:00 às 20:00
-    for(let i=7; i<=20; i++) {
-      temposSet.add(`${i.toString().padStart(2, '0')}:00`);
-      temposSet.add(`${i.toString().padStart(2, '0')}:30`);
-    }
 
-    // 2. Adiciona horários dos agendamentos reais (para garantir que apareçam)
+    // 1. União de todos os slots de todos os médicos (define as linhas da grade)
+    Object.values(slotsPorMedico).forEach(slots =>
+      slots.forEach(hora => temposSet.add(hora))
+    );
+
+    // 2. Agendamentos já marcados (garante que apareçam mesmo se slot não está mais livre)
     agendamentos.forEach(a => {
-      if (a.horario) {
-        temposSet.add(a.horario.slice(0, 5));
-      }
+      if (a.horario) temposSet.add(a.horario.slice(0, 5));
     });
 
-    // 3. Converte para array e ordena
+    // 3. Fallback: se nenhum médico tem grade configurada, usa grade padrão 30/30
+    if (temposSet.size === 0) {
+      for (let i = 7; i <= 20; i++) {
+        temposSet.add(`${i.toString().padStart(2, '0')}:00`);
+        temposSet.add(`${i.toString().padStart(2, '0')}:30`);
+      }
+    }
+
     return Array.from(temposSet).sort();
   };
 
@@ -115,7 +162,15 @@ export default function CalendarioRecepcaoPage() {
           </span>
           <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-2 hover:bg-gray-100 rounded">▶</button>
         </div>
-        <button onClick={fetchDados} className="bg-[#5b8dfd] text-white px-4 py-2 rounded hover:bg-blue-600 text-sm font-bold shadow-sm transition">Atualizar</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowEncaixeModal(true)}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition"
+          >
+            🚨 Encaixar Urgência
+          </button>
+          <button onClick={fetchDados} className="bg-[#5b8dfd] text-white px-4 py-2 rounded hover:bg-blue-600 text-sm font-bold shadow-sm transition">Atualizar</button>
+        </div>
       </header>
 
       {/* GRID DA AGENDA */}
@@ -144,9 +199,18 @@ export default function CalendarioRecepcaoPage() {
 
                 {medicos.map(m => {
                   const agendamento = getAgendamento(m.id, hora);
+                  const temSlot = medicoTemSlot(m.id, hora);
+
+                  // Médico não tem esse horário na agenda e não há agendamento: célula bloqueada
+                  if (!temSlot) {
+                    return (
+                      <div key={`${m.id}-${hora}`} className="border-r last:border-r-0 p-1 min-h-[70px] bg-gray-100/60" />
+                    );
+                  }
+
                   return (
-                    <div 
-                      key={`${m.id}-${hora}`} 
+                    <div
+                      key={`${m.id}-${hora}`}
                       className={`border-r last:border-r-0 p-1 min-h-[70px] transition-colors relative group
                         ${!agendamento ? 'bg-emerald-50/30 hover:bg-emerald-100/50' : ''}`}
                       onClick={() => handleOpenModal(m.id, hora, agendamento)}
@@ -159,12 +223,17 @@ export default function CalendarioRecepcaoPage() {
                           ${agendamento.status === 'PRESENTE' ? 'bg-emerald-100 border-emerald-600 text-emerald-900' : ''}
                           ${agendamento.status === 'EM_ATENDIMENTO' ? 'bg-blue-600 border-blue-800 text-white animate-pulse' : ''}
                           ${agendamento.status === 'CONCLUIDO' ? 'bg-gray-100 border-gray-400 text-gray-500 opacity-75' : ''}
+                          ${agendamento.status === 'AUSENTE' ? 'bg-orange-50 border-orange-500 text-orange-900' : ''}
                           ${agendamento.status === 'CANCELADO' ? 'bg-red-50 border-red-500 text-red-900 line-through opacity-50' : ''}
                         `}>
-                          <div className="font-black truncate uppercase">{agendamento.paciente_nome}</div>
+                          <div className="font-black truncate uppercase flex items-center gap-1">
+                            {agendamento.tipo_consulta === 'ENCAIXE' && <span title="Encaixe Urgente">🚨</span>}
+                            {agendamento.paciente_nome}
+                          </div>
                           <div className="flex justify-between items-center mt-1">
                             <span className="font-bold opacity-70">{agendamento.status.replace('_', ' ')}</span>
                             {agendamento.status === 'PENDENTE' && <span className="animate-bounce">🔔</span>}
+                            {agendamento.tipo_consulta === 'ENCAIXE' && <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded">URGENTE</span>}
                           </div>
                         </div>
                       ) : (
@@ -180,6 +249,72 @@ export default function CalendarioRecepcaoPage() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE ENCAIXE */}
+      {showEncaixeModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-red-600 p-4 text-white flex justify-between items-center">
+              <h2 className="font-bold text-lg">🚨 Encaixar Urgência</h2>
+              <button onClick={() => setShowEncaixeModal(false)} className="text-2xl leading-none">&times;</button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-500 mb-4">O paciente será adicionado ao topo da fila. Todos aguardando serão avisados pelo WhatsApp sobre o atraso.</p>
+              <form onSubmit={handleEncaixar} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Médico</label>
+                  <select
+                    required
+                    className="w-full p-3 border rounded-xl text-gray-900"
+                    value={formEncaixe.medico_id}
+                    onChange={e => setFormEncaixe({ ...formEncaixe, medico_id: e.target.value })}
+                  >
+                    <option value="">Selecione o médico...</option>
+                    {medicos.map(m => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nome do Paciente</label>
+                  <input
+                    required
+                    className="w-full p-3 border rounded-xl text-gray-900"
+                    value={formEncaixe.nome}
+                    onChange={e => setFormEncaixe({ ...formEncaixe, nome: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">WhatsApp</label>
+                  <input
+                    required
+                    className="w-full p-3 border rounded-xl text-gray-900"
+                    placeholder="879..."
+                    value={formEncaixe.whatsapp}
+                    onChange={e => setFormEncaixe({ ...formEncaixe, whatsapp: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Motivo / Observação</label>
+                  <input
+                    className="w-full p-3 border rounded-xl text-gray-900"
+                    placeholder="Ex: Dor aguda, retorno urgente..."
+                    value={formEncaixe.observacoes}
+                    onChange={e => setFormEncaixe({ ...formEncaixe, observacoes: e.target.value })}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loadingEncaixe}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg disabled:opacity-50"
+                >
+                  {loadingEncaixe ? 'Encaixando...' : '🚨 CONFIRMAR ENCAIXE'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE GESTÃO */}
       {showModal && (
