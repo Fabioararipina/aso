@@ -12,6 +12,26 @@ class WhatsAppService {
     this.io = null;
     this.qrCode = null;
     this.logger = pino({ level: 'debug' }, pino.destination(path.join(__dirname, '../../../baileys_backend.log')));
+    this._queue = [];
+    this._processing = false;
+  }
+
+  // Processa a fila enviando uma mensagem por vez com delay aleatório (anti-ban)
+  async _processQueue() {
+    if (this._processing) return;
+    this._processing = true;
+    while (this._queue.length > 0) {
+      const { numero, texto, resolve } = this._queue.shift();
+      const result = await this._enviarDireto(numero, texto);
+      resolve(result);
+      if (this._queue.length > 0) {
+        // Delay aleatório entre 4 e 9 segundos entre cada mensagem
+        const delay = 4000 + Math.floor(Math.random() * 5000);
+        console.log(`[WhatsAppService] Aguardando ${delay}ms antes do próximo envio (anti-ban)...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    this._processing = false;
   }
 
   setIo(ioInstance) {
@@ -190,7 +210,17 @@ class WhatsAppService {
     return true;
   }
 
+  // Adiciona mensagem à fila (chamado pelos controllers)
   async enviarMensagem(numero, texto) {
+    return new Promise((resolve) => {
+      this._queue.push({ numero, texto, resolve });
+      console.log(`[WhatsAppService] Mensagem enfileirada para ${numero}. Fila: ${this._queue.length} item(s).`);
+      this._processQueue();
+    });
+  }
+
+  // Envia diretamente (uso interno pela fila)
+  async _enviarDireto(numero, texto) {
     if (!this.isReady || !this.sock) {
       console.error('[WhatsAppService] Cliente não está pronto para enviar mensagem.');
       return false;
