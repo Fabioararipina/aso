@@ -188,32 +188,44 @@ ${linkFila}
       const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const lista = await Agendamento.listarParaTv(hoje);
 
-      // Agrupar por médico para calcular previsão cumulativa
+      // filasPorMedico guarda o horário de término estimado do último atendimento (Date)
+      // Apenas PRESENTE entra na fila real. CONFIRMADO mostra o horário agendado.
       const filasPorMedico = {};
       const listaProcessada = lista.map(item => {
         const medicoId = item.medico_id;
-        const tempoMedio = item.tempo_medio || 20; // Default 20 min
+        const tempoMedioMs = (item.tempo_medio || 20) * 60000;
         const atrasoMedico = item.atraso_minutos || 0;
 
-        if (!filasPorMedico[medicoId]) {
-          // O atraso inicial da fila é o atraso informado pelo médico
-          filasPorMedico[medicoId] = atrasoMedico; 
-        }
+        const [h, m] = item.horario.split(':');
+        const horarioAgendado = new Date(now);
+        horarioAgendado.setHours(parseInt(h), parseInt(m), 0, 0);
 
         let previsao = 'Em breve';
-        
+
         if (item.status === 'EM_ATENDIMENTO') {
           previsao = 'Agora';
+          // Estima término descontando tempo já consumido
+          let fimEstimado;
+          if (item.inicio_atendimento) {
+            const elapsed = (now - new Date(item.inicio_atendimento)) / 60000;
+            const restante = Math.max(5, (item.tempo_medio || 20) - elapsed);
+            fimEstimado = new Date(now.getTime() + restante * 60000);
+          } else {
+            fimEstimado = new Date(now.getTime() + tempoMedioMs);
+          }
+          filasPorMedico[medicoId] = fimEstimado;
+
+        } else if (item.status === 'PRESENTE') {
+          // Está fisicamente na clínica — entra na fila real
+          const fimAnterior = filasPorMedico[medicoId] || new Date(now.getTime() + atrasoMedico * 60000);
+          const inicioEstimado = new Date(Math.max(fimAnterior.getTime(), now.getTime()));
+          previsao = inicioEstimado.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          filasPorMedico[medicoId] = new Date(inicioEstimado.getTime() + tempoMedioMs);
+
         } else {
-          // Calcula hora estimada: Agora + Acumulado (inclui atraso)
-          const minutosEspera = filasPorMedico[medicoId];
-          const dataPrevisao = new Date();
-          dataPrevisao.setMinutes(dataPrevisao.getMinutes() + minutosEspera);
-          
-          previsao = dataPrevisao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-          
-          // Incrementa fila para o próximo
-          filasPorMedico[medicoId] += tempoMedio;
+          // CONFIRMADO — ainda não chegou, mostra o horário agendado + atraso do médico
+          const inicioComAtraso = new Date(horarioAgendado.getTime() + atrasoMedico * 60000);
+          previsao = inicioComAtraso.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         }
 
         return { ...item, previsao };

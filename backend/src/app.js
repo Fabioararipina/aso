@@ -38,6 +38,18 @@ whatsappService.inicializar();
 require('./services/followup/followupService');
 require('./services/confirmacao/confirmacaoService');
 
+// Zera atraso de todos os médicos à meia-noite (atraso não deve persistir entre dias)
+const cron = require('node-cron');
+const db = require('./config/database');
+cron.schedule('0 0 * * *', async () => {
+  try {
+    await db.query('UPDATE medicos SET atraso_minutos = 0');
+    console.log('[CRON] atraso_minutos zerado para todos os médicos.');
+  } catch (err) {
+    console.error('[CRON] Erro ao zerar atraso_minutos:', err.message);
+  }
+}, { timezone: 'America/Sao_Paulo' });
+
 // ROTAS
 app.use('/api/medicos', require('./routes/medicos'));
 app.use('/api/agendamentos', require('./routes/agendamentos'));
