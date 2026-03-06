@@ -14,6 +14,17 @@ class WhatsAppService {
     this.logger = pino({ level: 'debug' }, pino.destination(path.join(__dirname, '../../../baileys_backend.log')));
     this._queue = [];
     this._processing = false;
+    this.mensagensPausadas = false;
+  }
+
+  pausarMensagens() {
+    this.mensagensPausadas = true;
+    console.log('[WhatsAppService] Envio de mensagens PAUSADO pela recepção');
+  }
+
+  retomarMensagens() {
+    this.mensagensPausadas = false;
+    console.log('[WhatsAppService] Envio de mensagens RETOMADO');
   }
 
   // Processa a fila enviando uma mensagem por vez com delay aleatório (anti-ban)
@@ -212,6 +223,10 @@ class WhatsAppService {
 
   // Adiciona mensagem à fila (chamado pelos controllers)
   async enviarMensagem(numero, texto) {
+    if (this.mensagensPausadas) {
+      console.log(`[WhatsAppService] Mensagem BLOQUEADA (sistema pausado) para ${numero}`);
+      return false;
+    }
     return new Promise((resolve) => {
       this._queue.push({ numero, texto, resolve });
       console.log(`[WhatsAppService] Mensagem enfileirada para ${numero}. Fila: ${this._queue.length} item(s).`);
@@ -306,7 +321,8 @@ class WhatsAppService {
   getStatus() {
     return {
       ready: this.isReady,
-      qr: this.qrCode
+      qr: this.qrCode,
+      mensagensPausadas: this.mensagensPausadas
     };
   }
 }

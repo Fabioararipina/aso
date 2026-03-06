@@ -29,9 +29,9 @@ class Agendamento {
   static async listarParaTv(data) {
     // Busca agendamentos do dia + Média de tempo do médico + Foto + ATRASO
     const query = `
-      SELECT 
-        a.id, a.horario, a.status, a.inicio_atendimento,
-        p.nome as paciente_nome, 
+      SELECT
+        a.id, a.horario, a.status, a.inicio_atendimento, a.tipo_consulta,
+        p.nome as paciente_nome,
         m.id as medico_id, m.nome as medico_nome, m.foto_path, m.atraso_minutos,
         (
           SELECT AVG(EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60)::INTEGER
@@ -189,6 +189,40 @@ class Agendamento {
       [medico_id, data]
     );
     return result.rows;
+  }
+
+  static async trocarHorarios(id1, horario1, medicoId1, id2, horario2, medicoId2) {
+    await db.query('BEGIN');
+    try {
+      await db.query(
+        'UPDATE agendamentos SET horario = $1, medico_id = $2, atualizado_em = NOW() WHERE id = $3',
+        [horario2, medicoId2, id1]
+      );
+      await db.query(
+        'UPDATE agendamentos SET horario = $1, medico_id = $2, atualizado_em = NOW() WHERE id = $3',
+        [horario1, medicoId1, id2]
+      );
+      await db.query('COMMIT');
+    } catch (e) {
+      await db.query('ROLLBACK');
+      throw e;
+    }
+  }
+
+  static async moverAgendamento(id, novoHorario, novoMedicoId) {
+    let query = 'UPDATE agendamentos SET horario = $1, atualizado_em = NOW()';
+    const params = [novoHorario];
+
+    if (novoMedicoId) {
+      query += ', medico_id = $3 WHERE id = $2 RETURNING *';
+      params.push(id, novoMedicoId);
+    } else {
+      query += ' WHERE id = $2 RETURNING *';
+      params.push(id);
+    }
+
+    const result = await db.query(query, params);
+    return result.rows[0];
   }
 
   static async listarHistorico(paciente_id) {

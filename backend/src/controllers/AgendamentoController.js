@@ -73,6 +73,82 @@ ${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/cartao
     }
   }
 
+  static async encaixar(req, res) {
+    try {
+      const { nome, whatsapp, medico_id, observacoes } = req.body;
+
+      // Busca ou cria paciente
+      let paciente = await Paciente.buscarPorWhatsapp(whatsapp);
+      if (!paciente) {
+        paciente = await Paciente.criar({ nome, whatsapp, email: null });
+      }
+
+      // Horário atual no fuso do Brasil
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const horario = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':00';
+      const data_consulta = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+      const MedicoModel = require('../models/Medico');
+      const medico = await MedicoModel.buscarPorId(medico_id);
+
+      // Cria o agendamento como ENCAIXE
+      const agendamento = await Agendamento.criar({
+        paciente_id: paciente.id,
+        medico_id,
+        data_consulta,
+        horario,
+        tipo_consulta: 'ENCAIXE',
+        valor: medico ? medico.valor_consulta : 150.00,
+        observacoes: observacoes || 'Encaixe / Atendimento Prioritário'
+      });
+
+      // Confirma e marca como PRESENTE automaticamente (já está na clínica)
+      await Agendamento.atualizarStatus(agendamento.id, 'PRESENTE');
+      const agendamentoCompleto = await Agendamento.buscarPorId(agendamento.id);
+
+      // Calcula tempo médio e notifica todos que estão esperando
+      const tempoMedio = await Agendamento.calcularTempoMedio(medico_id);
+      const esperando = await Agendamento.buscarProximosDaFila(medico_id, data_consulta, 20);
+
+      esperando.forEach((p, index) => {
+        try {
+          setTimeout(() => {
+            const linkFila = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/agendamento/fila/${p.id}`;
+            const msg = `
+🚨 *AVISO DE ENCAIXE*
+-------------------------------
+Olá, *${p.paciente_nome}*!
+
+Um atendimento prioritário foi encaixado na agenda de Dr(a). ${agendamentoCompleto.medico_nome}.
+
+⏱️ *Atraso estimado:* ~${tempoMedio} minuto(s)
+
+Pedimos desculpas pela espera.
+Agradecemos sua compreensão! 🙏
+
+🔗 *Acompanhe sua posição:*
+${linkFila}
+`;
+            whatsappService.enviarMensagem(p.whatsapp, msg)
+              .then(sent => console.log(`[ZAP] Aviso encaixe para ${p.paciente_nome}: ${sent ? 'OK' : 'FALHA'}`))
+              .catch(err => console.error('Erro ao notificar encaixe:', err));
+          }, index * 1500);
+        } catch (err) {
+          console.error('Erro na notificação de encaixe:', err);
+        }
+      });
+
+      const io = req.app.get('io');
+      io.emit('novo-agendamento', agendamentoCompleto);
+      io.emit('encaixe-adicionado', { medico_id, agendamento: agendamentoCompleto, tempoMedio });
+
+      res.json({ sucesso: true, agendamento: agendamentoCompleto });
+    } catch (error) {
+      console.error('Erro ao encaixar:', error);
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
   static async buscarPorId(req, res) {
     try {
       const { id } = req.params;
@@ -248,6 +324,25 @@ _Por favor, chegue com 10 minutos de antecedência._
       // Evento geral de atualização
       io.emit('agendamento-atualizado', agendamento);
       
+      // Se marcou AUSENTE, avisa o paciente via WhatsApp
+      if (status === 'AUSENTE') {
+        const msgAusente = `
+😕 *VOCÊ FOI CHAMADO(A)!*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
+
+Tentamos te chamar, mas você não estava disponível no momento.
+
+👨‍⚕️ *Profissional:* Dr(a). ${agendamentoCompleto.medico_nome}
+
+Fique por perto! Você será chamado(a) novamente em breve.
+_Não se afaste da clínica._
+`;
+        whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msgAusente).then(sent => {
+          console.log(`[ZAP] Aviso de ausência para ${agendamentoCompleto.paciente_nome}: ${sent ? 'OK' : 'FALHA'}`);
+        });
+      }
+
       // Se for chamar o paciente, emite evento específico para TV e manda ZAP
       if (status === 'EM_ATENDIMENTO') {
         console.log(`[STATUS] Chamar paciente: ${agendamentoCompleto.paciente_nome}`);
@@ -328,6 +423,30 @@ ${linkFilaProx}
         });
       }
 
+      // Envia link NPS quando consulta é concluída
+      if (status === 'CONCLUIDO') {
+        const linkNps = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/feedback/${id}`;
+        const msgNps = `
+⭐ *PESQUISA DE SATISFAÇÃO*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
+
+Sua consulta com Dr(a). *${agendamentoCompleto.medico_nome}* foi concluída.
+
+Sua opinião é muito importante para nós! 💙
+Responda nossa pesquisa rápida:
+
+👉 ${linkNps}
+
+Obrigado pela confiança na *Essencial Saúde*!
+`;
+        setTimeout(() => {
+          whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msgNps)
+            .then(sent => console.log(`[ZAP] NPS para ${agendamentoCompleto.paciente_nome}: ${sent ? 'OK' : 'FALHA'}`))
+            .catch(err => console.error('Erro ao enviar NPS:', err));
+        }, 3000);
+      }
+
       res.json(agendamento);
     } catch (error) {
       console.error(`[ERRO STATUS] ${id}:`, error);
@@ -362,6 +481,28 @@ _Guarde este arquivo com segurança._
 `;
       await whatsappService.enviarArquivo(agendamentoCompleto.whatsapp, filePath, legenda);
 
+      // Envia link NPS após o prontuário (com delay para não sobrepor o PDF)
+      const linkNps = `${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/feedback/${id}`;
+      const msgNps = `
+⭐ *PESQUISA DE SATISFAÇÃO*
+-------------------------------
+Olá, *${agendamentoCompleto.paciente_nome}*!
+
+Sua consulta com Dr(a). *${agendamentoCompleto.medico_nome}* foi concluída.
+
+Sua opinião é muito importante para nós! 💙
+Responda nossa pesquisa rápida:
+
+👉 ${linkNps}
+
+Obrigado pela confiança na *Essencial Saúde*!
+`;
+      setTimeout(() => {
+        whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msgNps)
+          .then(sent => console.log(`[ZAP] NPS para ${agendamentoCompleto.paciente_nome}: ${sent ? 'OK' : 'FALHA'}`))
+          .catch(err => console.error('Erro ao enviar NPS:', err));
+      }, 3000);
+
       // Notifica frontends
       const io = req.app.get('io');
       io.emit('agendamento-atualizado', agendamento);
@@ -388,6 +529,33 @@ _Guarde este arquivo com segurança._
 
       res.json({ sucesso: true, agendamento });
     } catch (error) {
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
+  static async trocar(req, res) {
+    const { id1, horario1, medico_id1, id2, horario2, medico_id2 } = req.body;
+    try {
+      await Agendamento.trocarHorarios(id1, horario1, medico_id1, id2, horario2, medico_id2);
+      const io = req.app.get('io');
+      io.emit('agendamento-atualizado', { id1, id2 });
+      res.json({ sucesso: true });
+    } catch (error) {
+      console.error('[ERRO TROCAR]', error);
+      res.status(500).json({ erro: error.message });
+    }
+  }
+
+  static async mover(req, res) {
+    const { id } = req.params;
+    const { horario, medico_id } = req.body;
+    try {
+      const agendamento = await Agendamento.moverAgendamento(id, horario, medico_id || null);
+      const io = req.app.get('io');
+      io.emit('agendamento-atualizado', agendamento);
+      res.json({ sucesso: true, agendamento });
+    } catch (error) {
+      console.error(`[ERRO MOVER] ${id}:`, error);
       res.status(500).json({ erro: error.message });
     }
   }

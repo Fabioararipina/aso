@@ -22,10 +22,20 @@ export default function CalendarioRecepcaoPage() {
   const [formEncaixe, setFormEncaixe] = useState({ nome: '', whatsapp: '', medico_id: '', observacoes: '' });
   const [loadingEncaixe, setLoadingEncaixe] = useState(false);
 
+  // Estado do botão de pausa de mensagens
+  const [mensagensPausadas, setMensagensPausadas] = useState(false);
+
+  // Estado de drag-and-drop
+  const [draggedAgendamento, setDraggedAgendamento] = useState(null);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
   useEffect(() => {
     fetchDados();
+    // Verifica estado inicial das mensagens
+    axios.get(`${API_URL}/api/whatsapp/status`)
+      .then(res => setMensagensPausadas(res.data.mensagensPausadas || false))
+      .catch(() => {});
   }, [selectedDate]);
 
   const fetchDados = async () => {
@@ -97,6 +107,58 @@ export default function CalendarioRecepcaoPage() {
     }
   };
 
+  const toggleMensagens = async () => {
+    const rota = mensagensPausadas ? 'retomar' : 'pausar';
+    try {
+      const res = await axios.post(`${API_URL}/api/whatsapp/${rota}`);
+      setMensagensPausadas(res.data.mensagensPausadas);
+    } catch (error) {
+      alert('Erro ao alterar estado das mensagens');
+    }
+  };
+
+  const handleDragStart = (agendamento) => {
+    setDraggedAgendamento(agendamento);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAgendamento(null);
+  };
+
+  const handleDrop = async (medicoId, hora) => {
+    if (!draggedAgendamento) return;
+    // Não fazer nada se soltar no mesmo slot
+    if (draggedAgendamento.medico_id === medicoId && draggedAgendamento.horario.startsWith(hora)) {
+      setDraggedAgendamento(null);
+      return;
+    }
+    const slotDestino = getAgendamento(medicoId, hora);
+    try {
+      if (slotDestino && slotDestino.id !== draggedAgendamento.id) {
+        // Slot ocupado: troca os horários dos dois pacientes
+        await axios.post(`${API_URL}/api/agendamentos/trocar`, {
+          id1: draggedAgendamento.id,
+          horario1: draggedAgendamento.horario,
+          medico_id1: draggedAgendamento.medico_id,
+          id2: slotDestino.id,
+          horario2: slotDestino.horario,
+          medico_id2: slotDestino.medico_id,
+        });
+      } else {
+        // Slot livre: move para cá
+        await axios.put(`${API_URL}/api/agendamentos/${draggedAgendamento.id}/mover`, {
+          horario: hora + ':00',
+          medico_id: medicoId,
+        });
+      }
+      setDraggedAgendamento(null);
+      fetchDados();
+    } catch (error) {
+      alert('Erro ao reorganizar: ' + (error.response?.data?.erro || error.message));
+      setDraggedAgendamento(null);
+    }
+  };
+
   const handleAgendarBalcao = async (e) => {
     e.preventDefault();
     try {
@@ -162,7 +224,18 @@ export default function CalendarioRecepcaoPage() {
           </span>
           <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-2 hover:bg-gray-100 rounded">▶</button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={toggleMensagens}
+            title={mensagensPausadas ? 'Clique para retomar o envio de mensagens WhatsApp' : 'Clique para pausar o envio de mensagens WhatsApp'}
+            className={`px-4 py-2 rounded text-sm font-bold shadow transition ${
+              mensagensPausadas
+                ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-900 animate-pulse'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            }`}
+          >
+            {mensagensPausadas ? '🔕 Msgs PAUSADAS — Retomar' : '🔔 Pausar Msgs'}
+          </button>
           <button
             onClick={() => setShowEncaixeModal(true)}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold shadow transition"
@@ -208,24 +281,37 @@ export default function CalendarioRecepcaoPage() {
                     );
                   }
 
+                  const isDraggingOver = draggedAgendamento && draggedAgendamento.id !== agendamento?.id;
+                  const isSwapTarget = isDraggingOver && !!agendamento;
+
                   return (
                     <div
                       key={`${m.id}-${hora}`}
                       className={`border-r last:border-r-0 p-1 min-h-[70px] transition-colors relative group
-                        ${!agendamento ? 'bg-emerald-50/30 hover:bg-emerald-100/50' : ''}`}
-                      onClick={() => handleOpenModal(m.id, hora, agendamento)}
+                        ${!agendamento ? 'bg-emerald-50/30 hover:bg-emerald-100/50' : ''}
+                        ${isDraggingOver && !agendamento ? 'ring-2 ring-inset ring-blue-400 ring-dashed' : ''}
+                        ${isSwapTarget ? 'ring-2 ring-inset ring-orange-400 ring-dashed' : ''}`}
+                      onClick={() => !draggedAgendamento && handleOpenModal(m.id, hora, agendamento)}
+                      onDragOver={(e) => { e.preventDefault(); }}
+                      onDrop={() => handleDrop(m.id, hora)}
                     >
                       {agendamento ? (
-                        <div className={`
-                          h-full rounded-lg p-2 text-[11px] border-l-4 shadow-sm cursor-pointer hover:shadow-md transition transform hover:scale-[1.01]
-                          ${agendamento.status === 'PENDENTE' ? 'bg-yellow-50 border-yellow-500 text-yellow-900' : ''}
-                          ${agendamento.status === 'CONFIRMADO' ? 'bg-blue-50 border-blue-500 text-blue-900' : ''}
-                          ${agendamento.status === 'PRESENTE' ? 'bg-emerald-100 border-emerald-600 text-emerald-900' : ''}
-                          ${agendamento.status === 'EM_ATENDIMENTO' ? 'bg-blue-600 border-blue-800 text-white animate-pulse' : ''}
-                          ${agendamento.status === 'CONCLUIDO' ? 'bg-gray-100 border-gray-400 text-gray-500 opacity-75' : ''}
-                          ${agendamento.status === 'AUSENTE' ? 'bg-orange-50 border-orange-500 text-orange-900' : ''}
-                          ${agendamento.status === 'CANCELADO' ? 'bg-red-50 border-red-500 text-red-900 line-through opacity-50' : ''}
-                        `}>
+                        <div
+                          draggable
+                          onDragStart={() => handleDragStart(agendamento)}
+                          onDragEnd={handleDragEnd}
+                          className={`
+                            h-full rounded-lg p-2 text-[11px] border-l-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition transform hover:scale-[1.01]
+                            ${draggedAgendamento?.id === agendamento.id ? 'opacity-40' : ''}
+                            ${agendamento.status === 'PENDENTE' ? 'bg-yellow-50 border-yellow-500 text-yellow-900' : ''}
+                            ${agendamento.status === 'CONFIRMADO' ? 'bg-blue-50 border-blue-500 text-blue-900' : ''}
+                            ${agendamento.status === 'PRESENTE' ? 'bg-emerald-100 border-emerald-600 text-emerald-900' : ''}
+                            ${agendamento.status === 'EM_ATENDIMENTO' ? 'bg-blue-600 border-blue-800 text-white animate-pulse' : ''}
+                            ${agendamento.status === 'CONCLUIDO' ? 'bg-gray-100 border-gray-400 text-gray-500 opacity-75' : ''}
+                            ${agendamento.status === 'AUSENTE' ? 'bg-orange-50 border-orange-500 text-orange-900' : ''}
+                            ${agendamento.status === 'CANCELADO' ? 'bg-red-50 border-red-500 text-red-900 line-through opacity-50' : ''}
+                          `}
+                        >
                           <div className="font-black truncate uppercase flex items-center gap-1">
                             {agendamento.tipo_consulta === 'ENCAIXE' && <span title="Encaixe Urgente">🚨</span>}
                             {agendamento.paciente_nome}
@@ -237,8 +323,10 @@ export default function CalendarioRecepcaoPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="bg-emerald-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-sm">LIVRE +</span>
+                        <div className={`h-full w-full flex items-center justify-center transition-opacity ${draggedAgendamento ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold shadow-sm ${draggedAgendamento ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                            {draggedAgendamento ? 'SOLTAR AQUI' : 'LIVRE +'}
+                          </span>
                         </div>
                       )}
                     </div>

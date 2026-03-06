@@ -65,8 +65,20 @@ app.post('/api/whatsapp/reconnect', async (req, res) => {
 app.get('/api/whatsapp/status', (req, res) => {
   res.json({
     status: whatsappService.getStatus(),
-    isReady: whatsappService.isReady
+    isReady: whatsappService.isReady,
+    mensagensPausadas: whatsappService.mensagensPausadas
   });
+});
+
+// Endpoints para pausar/retomar envio de mensagens
+app.post('/api/whatsapp/pausar', (req, res) => {
+  whatsappService.pausarMensagens();
+  res.json({ mensagensPausadas: true });
+});
+
+app.post('/api/whatsapp/retomar', (req, res) => {
+  whatsappService.retomarMensagens();
+  res.json({ mensagensPausadas: false });
 });
 
 // Endpoint para enviar mensagem de teste
