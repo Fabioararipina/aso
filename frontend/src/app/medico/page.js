@@ -19,6 +19,7 @@ export default function MedicoPage() {
   const [modalAtrasoOpen, setModalAtrasoOpen] = useState(false);
   const [tempoAtraso, setTempoAtraso] = useState(15);
 
+
   // Estados para Histórico
   const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false);
   const [historico, setHistorico] = useState([]);
@@ -92,7 +93,22 @@ export default function MedicoPage() {
   };
 
   // Filtrar apenas agendamentos relevantes para o fluxo do dia
-  const fila = agendamentos.filter(a => ['CONFIRMADO', 'PRESENTE', 'EM_ATENDIMENTO', 'CONCLUIDO'].includes(a.status));
+  // Encaixe urgente aparece primeiro na fila
+  const fila = agendamentos
+    .filter(a => ['CONFIRMADO', 'PRESENTE', 'EM_ATENDIMENTO', 'AUSENTE', 'CONCLUIDO'].includes(a.status))
+    .sort((a, b) => {
+      // EM_ATENDIMENTO sempre primeiro
+      if (a.status === 'EM_ATENDIMENTO') return -1;
+      if (b.status === 'EM_ATENDIMENTO') return 1;
+      // CONCLUIDO sempre por último
+      if (a.status === 'CONCLUIDO') return 1;
+      if (b.status === 'CONCLUIDO') return -1;
+      // ENCAIXE sobe para o topo dos pendentes
+      if (a.tipo_consulta === 'ENCAIXE' && b.tipo_consulta !== 'ENCAIXE') return -1;
+      if (b.tipo_consulta === 'ENCAIXE' && a.tipo_consulta !== 'ENCAIXE') return 1;
+      // Demais ordenam por horário
+      return a.horario.localeCompare(b.horario);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -123,7 +139,7 @@ export default function MedicoPage() {
               className="p-2 border rounded border-gray-300 text-gray-700 flex-1"
             />
             {selectedMedico && (
-              <button 
+              <button
                 onClick={() => setModalAtrasoOpen(true)}
                 className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 rounded text-sm whitespace-nowrap"
               >
@@ -244,8 +260,8 @@ export default function MedicoPage() {
                     <label className="w-full md:w-auto bg-white text-blue-600 hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-lg transition transform hover:scale-105 cursor-pointer text-center flex flex-col items-center gap-1">
                       <span className="text-lg">📤 FINALIZAR</span>
                       <span className="text-xs font-normal opacity-80">(Anexar PDF e Enviar)</span>
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         accept="application/pdf"
                         className="hidden"
                         onChange={(e) => {
@@ -254,7 +270,7 @@ export default function MedicoPage() {
                               const formData = new FormData();
                               formData.append('file', e.target.files[0]);
                               const id = fila.find(a => a.status === 'EM_ATENDIMENTO').id;
-                              
+
                               setLoading(true);
                               axios.post(`${API_URL}/api/agendamentos/${id}/prontuario`, formData)
                                 .then(() => {
@@ -268,11 +284,21 @@ export default function MedicoPage() {
                         }}
                       />
                     </label>
-                    <button 
+                    <button
                       onClick={() => atualizarStatus(fila.find(a => a.status === 'EM_ATENDIMENTO').id, 'CONCLUIDO')}
                       className="text-white text-sm underline hover:text-blue-200 mt-2"
                     >
                       Finalizar sem arquivo
+                    </button>
+                    <button
+                      onClick={() => {
+                        const pac = fila.find(a => a.status === 'EM_ATENDIMENTO');
+                        if (confirm(`Marcar ${pac.paciente_nome} como AUSENTE? O paciente receberá um aviso pelo WhatsApp.`))
+                          atualizarStatus(pac.id, 'AUSENTE');
+                      }}
+                      className="w-full md:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-6 rounded-xl shadow transition text-sm"
+                    >
+                      😕 PACIENTE AUSENTE
                     </button>
                   </div>
                 </div>
@@ -295,20 +321,26 @@ export default function MedicoPage() {
                   {fila
                     .filter(a => a.status !== 'EM_ATENDIMENTO') // Remove o que já está em destaque
                     .map((agendamento) => (
-                    <li key={agendamento.id} className={`border-b border-gray-100 p-6 flex items-center justify-between hover:bg-gray-50 transition ${agendamento.status === 'CONCLUIDO' ? 'opacity-50 bg-gray-50' : ''}`}>
-                      
+                    <li key={agendamento.id} className={`border-b border-gray-100 p-6 flex items-center justify-between hover:bg-gray-50 transition
+                      ${agendamento.status === 'CONCLUIDO' ? 'opacity-50 bg-gray-50' : ''}
+                      ${agendamento.tipo_consulta === 'ENCAIXE' ? 'bg-red-50 border-l-4 border-red-500' : ''}`}>
+
                       <div className="flex items-center space-x-4">
                         <div className="text-center">
                           <span className="block text-xl font-bold text-gray-800">{agendamento.horario.slice(0, 5)}</span>
+                          {agendamento.tipo_consulta === 'ENCAIXE' && (
+                            <span className="text-xs font-bold text-red-600 bg-red-100 px-1 rounded">🚨 URGENTE</span>
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-lg text-gray-900">{agendamento.paciente_nome}</p>
                           <span className={`text-xs font-semibold px-2 py-1 rounded ${
                             agendamento.status === 'CONFIRMADO' ? 'bg-yellow-100 text-yellow-800' :
                             agendamento.status === 'PRESENTE' ? 'bg-green-100 text-green-800' :
+                            agendamento.status === 'AUSENTE' ? 'bg-orange-100 text-orange-800' :
                             'bg-gray-200 text-gray-600'
                           }`}>
-                            {agendamento.status}
+                            {agendamento.status === 'AUSENTE' ? '😕 AUSENTE' : agendamento.status}
                           </span>
                         </div>
                       </div>
@@ -317,11 +349,20 @@ export default function MedicoPage() {
                         {/* Botão CHEGOU removido a pedido. A recepção que faz isso. */}
                         
                         {(agendamento.status === 'PRESENTE' || agendamento.status === 'CONFIRMADO') && (
-                          <button 
+                          <button
                             onClick={() => atualizarStatus(agendamento.id, 'EM_ATENDIMENTO')}
                             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded shadow"
                           >
                             CHAMAR
+                          </button>
+                        )}
+
+                        {agendamento.status === 'AUSENTE' && (
+                          <button
+                            onClick={() => atualizarStatus(agendamento.id, 'EM_ATENDIMENTO')}
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-6 rounded shadow animate-pulse"
+                          >
+                            🔁 CHAMAR NOVAMENTE
                           </button>
                         )}
                         
