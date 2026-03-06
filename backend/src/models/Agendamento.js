@@ -35,9 +35,13 @@ class Agendamento {
         m.id as medico_id, m.nome as medico_nome, m.foto_path, m.atraso_minutos,
         (
           SELECT AVG(EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60)::INTEGER
-          FROM agendamentos a2
-          WHERE a2.medico_id = m.id AND a2.status = 'CONCLUIDO' AND a2.inicio_atendimento IS NOT NULL
-          LIMIT 10
+          FROM (
+            SELECT atualizado_em, inicio_atendimento FROM agendamentos a2
+            WHERE a2.medico_id = m.id AND a2.status = 'CONCLUIDO' AND a2.inicio_atendimento IS NOT NULL
+            AND EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60 >= 2
+            ORDER BY a2.data_consulta DESC, a2.horario DESC
+            LIMIT 10
+          ) ult
         ) as tempo_medio
       FROM agendamentos a
       JOIN pacientes p ON a.paciente_id = p.id
@@ -89,14 +93,15 @@ class Agendamento {
   }
 
   static async calcularTempoMedio(medico_id) {
-    // Pega os últimos 10 atendimentos concluídos deste médico
+    // Pega os últimos 10 atendimentos concluídos com duração >= 2 min (ignora cliques acidentais)
     const query = `
       SELECT AVG(duracao)::INTEGER as media_minutos FROM (
         SELECT EXTRACT(EPOCH FROM (atualizado_em - inicio_atendimento))/60 as duracao
-        FROM agendamentos 
-        WHERE medico_id = $1 
-        AND status = 'CONCLUIDO' 
+        FROM agendamentos
+        WHERE medico_id = $1
+        AND status = 'CONCLUIDO'
         AND inicio_atendimento IS NOT NULL
+        AND EXTRACT(EPOCH FROM (atualizado_em - inicio_atendimento))/60 >= 2
         ORDER BY data_consulta DESC, horario DESC
         LIMIT 10
       ) as ultimos
