@@ -60,7 +60,7 @@ Você receberá uma nova mensagem assim que o horário for aprovado pela recepç
 
 💳 *DICA:*
 Conheça o *Cartão Essencial Saúde* e ganhe descontos exclusivos:
-${process.env.FRONTEND_URL || 'https://portal.primeatende.com.br'}/cartao
+https://cartao.cartaoessencialsaude.com.br/
 `;
       whatsappService.enviarMensagem(agendamentoCompleto.whatsapp, msg);
 
