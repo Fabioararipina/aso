@@ -54,6 +54,8 @@ Recebemos seu pedido.
 ⏰ *Horário:* ${agendamentoCompleto.horario.slice(0, 5)}
 📂 *Status:* 🟡 PENDENTE
 
+⚠️ *Atenção:* O horário acima é uma *estimativa*. O atendimento pode começar um pouco antes ou depois, dependendo do movimento do dia e da duração de cada consulta. Não se preocupe — quando chegar a sua vez, você vai receber um aviso aqui mesmo pelo WhatsApp! 😊
+
 -------------------------------
 ℹ️ *Aguarde a confirmação.*
 Você receberá uma nova mensagem assim que o horário for aprovado pela recepção.
@@ -270,6 +272,8 @@ Seu horário está garantido.
 📅 *Data:* ${new Date(agendamentoCompleto.data_consulta).toLocaleDateString('pt-BR')}
 ⏰ *Horário:* ${agendamentoCompleto.horario.slice(0,5)}
 
+⚠️ *Atenção:* O horário acima é uma *estimativa*. O atendimento pode começar um pouco antes ou depois, dependendo do movimento do dia e da duração de cada consulta. Não se preocupe — quando chegar a sua vez, você vai receber um aviso aqui mesmo pelo WhatsApp! 😊
+
 📍 *Local:* Clínica Essencial Saúde
 
 🔗 *ACOMPANHE SUA VEZ:*
@@ -403,6 +407,8 @@ Você é o *PRÓXIMO* da fila!
 👨‍⚕️ *Especialista:* Dr(a). ${agendamentoCompleto.medico_nome}
 ⏱️ *Tempo Estimado:* ~${tempoEstimado} min
 
+⚠️ *Atenção:* Este tempo é apenas uma estimativa. O atendimento pode ocorrer um pouco antes ou depois, conforme o andamento das consultas. Fique por perto e aguarde o aviso!
+
 🔗 *Acompanhe:*
 ${linkFilaProx}
 
@@ -417,6 +423,8 @@ Um atendimento foi iniciado.
 
 👥 *Sua Posição:* ${posicao}º lugar
 ⏱️ *Tempo Estimado:* ~${tempoEstimado} min
+
+⚠️ *Atenção:* Este tempo é apenas uma estimativa. O atendimento pode ocorrer um pouco antes ou depois, conforme o andamento das consultas. Fique por perto e aguarde o aviso!
 
 🔗 *Acompanhe:*
 ${linkFilaProx}
