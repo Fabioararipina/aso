@@ -34,7 +34,7 @@ class Agendamento {
         p.nome as paciente_nome,
         m.id as medico_id, m.nome as medico_nome, m.foto_path, m.atraso_minutos,
         (
-          SELECT AVG(EXTRACT(EPOCH FROM (a2.atualizado_em - a2.inicio_atendimento))/60)::INTEGER
+          SELECT AVG(EXTRACT(EPOCH FROM (ult.atualizado_em - ult.inicio_atendimento))/60)::INTEGER
           FROM (
             SELECT atualizado_em, inicio_atendimento FROM agendamentos a2
             WHERE a2.medico_id = m.id AND a2.status = 'CONCLUIDO' AND a2.inicio_atendimento IS NOT NULL
