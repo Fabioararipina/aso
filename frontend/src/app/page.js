@@ -25,6 +25,7 @@ export default function AgendamentoWizard() {
   
   // Formulário Final
   const [form, setForm] = useState({ nome: '', whatsapp: '', email: '', observacoes: '', tipo_consulta: 'PRIMEIRA_VEZ' });
+  const [submitting, setSubmitting] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
 
@@ -124,7 +125,9 @@ export default function AgendamentoWizard() {
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
     if (!selectedMedico || !selectedDate || !selectedHorario) return;
+    if (submitting) return;
 
+    setSubmitting(true);
     try {
       const payload = {
         ...form,
@@ -132,7 +135,7 @@ export default function AgendamentoWizard() {
         data_consulta: format(selectedDate, 'yyyy-MM-dd'),
         horario: selectedHorario,
         // Envia valor zerado se for retorno, ou o valor do médico se for consulta
-        valor: form.tipo_consulta === 'RETORNO' ? 0 : null 
+        valor: form.tipo_consulta === 'RETORNO' ? 0 : null
       };
 
       const res = await axios.post(`${API_URL}/api/agendamentos`, payload);
@@ -140,6 +143,7 @@ export default function AgendamentoWizard() {
       router.push(`/agendamento/sucesso?id=${res.data.agendamento.id}`);
     } catch (error) {
       alert('Erro ao agendar: ' + error.message);
+      setSubmitting(false);
     }
   };
 
@@ -397,10 +401,11 @@ export default function AgendamentoWizard() {
               </div>
 
               <button 
-                type="submit" 
-                className="w-full bg-[#71ca4f] hover:bg-[#65b546] text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105 mt-4"
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#71ca4f] hover:bg-[#65b546] disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105 mt-4"
               >
-                CONFIRMAR AGENDAMENTO
+                {submitting ? 'AGUARDE...' : 'CONFIRMAR AGENDAMENTO'}
               </button>
             </form>
           </div>

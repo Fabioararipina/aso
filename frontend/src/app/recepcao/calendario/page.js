@@ -25,6 +25,9 @@ export default function CalendarioRecepcaoPage() {
   // Estado do botão de pausa de mensagens
   const [mensagensPausadas, setMensagensPausadas] = useState(false);
 
+  // Evitar duplo clique no balcão
+  const [loadingBalcao, setLoadingBalcao] = useState(false);
+
   // Estado de drag-and-drop
   const [draggedAgendamento, setDraggedAgendamento] = useState(null);
 
@@ -161,6 +164,9 @@ export default function CalendarioRecepcaoPage() {
 
   const handleAgendarBalcao = async (e) => {
     e.preventDefault();
+    if (loadingBalcao) return;
+
+    setLoadingBalcao(true);
     try {
       const payload = {
         ...form,
@@ -173,7 +179,11 @@ export default function CalendarioRecepcaoPage() {
       await axios.put(`${API_URL}/api/agendamentos/${res.data.agendamento.id}/confirmar`);
       setShowModal(false);
       fetchDados();
-    } catch (e) { alert('Erro ao agendar'); }
+    } catch (e) {
+      alert('Erro ao agendar');
+    } finally {
+      setLoadingBalcao(false);
+    }
   };
 
   // Verifica se um médico específico tem aquele horário disponível (ou ocupado por agendamento)
@@ -449,7 +459,9 @@ export default function CalendarioRecepcaoPage() {
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-1">WhatsApp</label>
                     <input required className="w-full p-3 border rounded-xl text-gray-900" placeholder="879..." value={form.whatsapp} onChange={e => setForm({...form, whatsapp: e.target.value})} />
                   </div>
-                  <button type="submit" className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg">CADASTRAR E CONFIRMAR</button>
+                  <button type="submit" disabled={loadingBalcao} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg">
+                    {loadingBalcao ? 'AGUARDE...' : 'CADASTRAR E CONFIRMAR'}
+                  </button>
                 </form>
               )}
             </div>

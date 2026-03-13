@@ -185,9 +185,13 @@ ${linkFila}
 
   static async dadosTv(req, res) {
     try {
-      // Usar fuso horário do Brasil (UTC-3)
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-      const hoje = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      // nowBrasil: usado APENAS para obter a data de hoje no fuso BR
+      const nowBrasil = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const hoje = nowBrasil.getFullYear() + '-' + String(nowBrasil.getMonth() + 1).padStart(2, '0') + '-' + String(nowBrasil.getDate()).padStart(2, '0');
+
+      // now: epoch UTC real, usado para toda aritmética com timestamps do banco
+      const now = new Date();
+
       const lista = await Agendamento.listarParaTv(hoje);
 
       // filasPorMedico guarda o horário de término estimado do último atendimento (Date)
@@ -198,9 +202,9 @@ ${linkFila}
         const tempoMedioMs = (item.tempo_medio || 20) * 60000;
         const atrasoMedico = item.atraso_minutos || 0;
 
+        // Constrói horarioAgendado como UTC real a partir do horário em fuso BR (-03:00)
         const [h, m] = item.horario.split(':');
-        const horarioAgendado = new Date(now);
-        horarioAgendado.setHours(parseInt(h), parseInt(m), 0, 0);
+        const horarioAgendado = new Date(`${hoje}T${h.padStart(2, '0')}:${m.padStart(2, '0')}:00-03:00`);
 
         let previsao = 'Em breve';
 
@@ -221,13 +225,13 @@ ${linkFila}
           // Está fisicamente na clínica — entra na fila real
           const fimAnterior = filasPorMedico[medicoId] || new Date(now.getTime() + atrasoMedico * 60000);
           const inicioEstimado = new Date(Math.max(fimAnterior.getTime(), now.getTime()));
-          previsao = inicioEstimado.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          previsao = inicioEstimado.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
           filasPorMedico[medicoId] = new Date(inicioEstimado.getTime() + tempoMedioMs);
 
         } else {
           // CONFIRMADO — ainda não chegou, mostra o horário agendado + atraso do médico
           const inicioComAtraso = new Date(horarioAgendado.getTime() + atrasoMedico * 60000);
-          previsao = inicioComAtraso.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          previsao = inicioComAtraso.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
         }
 
         return { ...item, previsao };
