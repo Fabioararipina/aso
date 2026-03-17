@@ -9,6 +9,7 @@ export default function PortalPage() {
     { title: 'Equipe Médica', desc: 'Cadastrar médicos e especialidades', href: '/admin/medicos', color: 'bg-orange-600', icon: '📋' },
     { title: 'Configurar Horários', desc: 'Definir grade de trabalho dos médicos', href: '/admin/horarios', color: 'bg-purple-600', icon: '⏰' },
     { title: 'Configurar TV', desc: 'Gerenciar propagandas e clima', href: '/admin/tv', color: 'bg-pink-600', icon: '🖥️' },
+    { title: 'Usuários do Sistema', desc: 'Gerenciar logins e permissões', href: '/admin/usuarios', color: 'bg-indigo-600', icon: '👥' },
     { title: 'WhatsApp Admin', desc: 'Conectar QR Code e ver status', href: '/admin', color: 'bg-teal-600', icon: '💬' },
     { title: 'TV Sala de Espera', desc: 'Abrir display de chamadas', href: '/tv', color: 'bg-gray-800', icon: '📺' },
   ];

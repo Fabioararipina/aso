@@ -2,16 +2,19 @@ const express = require('express');
 const router = express.Router();
 const MedicoController = require('../controllers/MedicoController');
 const uploadMedicos = require('../config/multerMedicos');
+const auth = require('../middleware/auth');
 
-router.get('/', MedicoController.listar);
-router.post('/', uploadMedicos.single('foto'), MedicoController.criar);
-router.put('/:id', uploadMedicos.single('foto'), MedicoController.atualizar);
-router.delete('/:id', MedicoController.excluir);
+// === ROTAS PÚBLICAS (sem login) ===
+router.get('/', MedicoController.listar);                                             // wizard público
+router.get('/:id/disponiveis', MedicoController.disponiveis);                         // wizard público
 
-router.get('/:id/horarios', MedicoController.listarHorarios);
-router.post('/:id/horarios', MedicoController.adicionarHorario);
-router.delete('/horarios/:id', MedicoController.removerHorario);
-router.get('/:id/disponiveis', MedicoController.disponiveis);
-router.post('/:id/atraso', MedicoController.notificarAtraso);
+// === ROTAS PROTEGIDAS (requerem login) ===
+router.post('/', auth, uploadMedicos.single('foto'), MedicoController.criar);
+router.put('/:id', auth, uploadMedicos.single('foto'), MedicoController.atualizar);
+router.delete('/:id', auth, MedicoController.excluir);
+router.get('/:id/horarios', auth, MedicoController.listarHorarios);
+router.post('/:id/horarios', auth, MedicoController.adicionarHorario);
+router.delete('/horarios/:id', auth, MedicoController.removerHorario);
+router.post('/:id/atraso', auth, MedicoController.notificarAtraso);
 
 module.exports = router;

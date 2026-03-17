@@ -18,10 +18,15 @@ const storage = multer.diskStorage({
 const uploadTv = multer({ storage: storage });
 
 
-router.get('/', TvMidiaController.listar);
-router.post('/', uploadTv.single('arquivo'), TvMidiaController.criar);
-router.put('/:id', uploadTv.single('arquivo'), TvMidiaController.atualizar);
-router.put('/:id/ordem', TvMidiaController.atualizarOrdem);
-router.delete('/:id', TvMidiaController.excluir);
+const auth = require('../middleware/auth');
+
+// === TOKEN TV (TV usa token próprio, usuários admin usam JWT normal) ===
+router.get('/', auth, TvMidiaController.listar);
+
+// === PROTEGIDAS ===
+router.post('/', auth, uploadTv.single('arquivo'), TvMidiaController.criar);
+router.put('/:id', auth, uploadTv.single('arquivo'), TvMidiaController.atualizar);
+router.put('/:id/ordem', auth, TvMidiaController.atualizarOrdem);
+router.delete('/:id', auth, TvMidiaController.excluir);
 
 module.exports = router;

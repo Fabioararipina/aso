@@ -1,10 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { getUser, logout } from '../lib/auth';
 
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = getUser();
+
+  function handleLogout() {
+    logout();
+    router.replace('/login');
+  }
 
   const menuItems = [
     { name: 'Portal Início', path: '/portal', icon: '🏠' },
@@ -16,6 +24,7 @@ export default function AdminLayout({ children }) {
     { name: 'Admin Horários', path: '/admin/horarios', icon: '⏰' },
         {name: 'Configurar TV', path: '/admin/tv', icon: '🖥️' },
         { name: 'Relatórios e Métricas', path: '/admin/metricas', icon: '📊' },
+    { name: 'Usuários do Sistema', path: '/admin/usuarios', icon: '👥' },
         { name: 'Admin WhatsApp', path: '/admin', icon: '💬' },
       ];
 
@@ -50,11 +59,30 @@ export default function AdminLayout({ children }) {
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-white/10">
+        <div className="p-4 mt-auto border-t border-white/10 space-y-3">
+          {/* Usuário logado */}
+          {user && (
+            <div className="px-1">
+              <p className="text-blue-100 text-xs font-medium opacity-70">Logado como</p>
+              <p className="text-white text-sm font-semibold truncate">{user.nome}</p>
+              <span className="inline-block text-xs bg-white/20 text-blue-50 px-2 py-0.5 rounded-full mt-0.5">
+                {user.perfil}
+              </span>
+            </div>
+          )}
+
           <Link href="/" className="flex items-center space-x-2 text-blue-100 hover:text-white text-sm font-medium transition">
             <span>⬅</span>
             <span>Voltar ao Site Público</span>
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 text-blue-100 hover:text-red-200 text-sm font-medium transition w-full"
+          >
+            <span>🚪</span>
+            <span>Sair</span>
+          </button>
         </div>
       </aside>
 

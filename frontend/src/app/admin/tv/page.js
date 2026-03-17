@@ -8,6 +8,11 @@ export default function AdminTvPage() {
   const [editando, setEditando] = useState(null); // ID do slide sendo editado
   const [tipo, setTipo] = useState('IMAGEM');
   const [titulo, setTitulo] = useState('');
+
+  // Código de acesso da TV
+  const [codigoTv, setCodigoTv] = useState(null);
+  const [gerandoCodigo, setGerandoCodigo] = useState(false);
+  const [copiado, setCopiado] = useState(false);
   const [duracao, setDuracao] = useState(10);
   const [arquivo, setArquivo] = useState(null);
   const [conteudo, setConteudo] = useState(''); // Para cidade ou texto
@@ -104,10 +109,74 @@ export default function AdminTvPage() {
     fetchMidias();
   };
 
+  const gerarCodigoTv = async () => {
+    setGerandoCodigo(true);
+    try {
+      const res = await axios.post(`${API_URL}/auth/tv-token`);
+      setCodigoTv(res.data.codigo);
+      setCopiado(false);
+    } catch (err) {
+      alert('Erro ao gerar código: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setGerandoCodigo(false);
+    }
+  };
+
+  const copiarCodigo = () => {
+    if (!codigoTv) return;
+    navigator.clipboard.writeText(codigoTv);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Configurar TV (Mídia Indoor)</h1>
+
+        {/* ACESSO DA TV */}
+        <div className="bg-white rounded-xl shadow p-6 mb-8 border-l-4 border-blue-500">
+          <h2 className="text-xl font-bold text-gray-800 mb-1">Acesso da TV</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            Gere um código para configurar a TV da sala de espera. Ao abrir o sistema na TV, será pedido esse código.
+            Gerar um novo código invalida o anterior.
+          </p>
+
+          {codigoTv ? (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-600">Código gerado — digite esse código na TV:</p>
+              <div className="flex items-center gap-3">
+                <div className="bg-gray-900 text-green-400 font-mono text-2xl font-bold tracking-widest px-6 py-3 rounded-xl select-all">
+                  {codigoTv}
+                </div>
+                <button
+                  onClick={copiarCodigo}
+                  className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold px-4 py-3 rounded-xl text-sm transition"
+                >
+                  {copiado ? '✓ Copiado' : 'Copiar'}
+                </button>
+              </div>
+              <p className="text-xs text-amber-600 font-medium">
+                Anote o código agora. Ele não será exibido novamente.
+              </p>
+              <button
+                onClick={gerarCodigoTv}
+                disabled={gerandoCodigo}
+                className="text-gray-500 text-sm underline hover:text-gray-700"
+              >
+                Gerar outro código
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={gerarCodigoTv}
+              disabled={gerandoCodigo}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition disabled:opacity-60"
+            >
+              {gerandoCodigo ? 'Gerando...' : 'Gerar código de acesso para a TV'}
+            </button>
+          )}
+        </div>
 
         <div className="grid md:grid-cols-2 gap-8">
           

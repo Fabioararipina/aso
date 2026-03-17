@@ -2,25 +2,28 @@
 const router = express.Router();
 const AgendamentoController = require('../controllers/AgendamentoController');
 const upload = require('../config/multer');
+const auth = require('../middleware/auth');
 
-// Rotas estáticas (sem parâmetros dinâmicos) - sempre antes das dinâmicas
-router.post('/', AgendamentoController.criar);
-router.post('/encaixe', AgendamentoController.encaixar);
-router.post('/trocar', AgendamentoController.trocar);
-router.get('/pendentes', AgendamentoController.listarPendentes);
-router.get('/recepcao/dia', AgendamentoController.listarPorDia);
-router.get('/tv/dados', AgendamentoController.dadosTv);
-router.get('/medico/:medico_id', AgendamentoController.listarPorMedico);
-router.get('/paciente/:paciente_id/historico', AgendamentoController.listarHistorico);
-router.get('/detalhes/:id', AgendamentoController.buscarPorId);
+// === ROTAS PÚBLICAS (sem login) ===
+router.post('/', AgendamentoController.criar);                          // wizard público
+router.get('/detalhes/:id', AgendamentoController.buscarPorId);         // acompanhamento do paciente
+router.get('/:id/posicao', AgendamentoController.verFila);              // rastreador de fila
+router.post('/:id/feedback', AgendamentoController.receberFeedback);    // NPS
 
-// Rotas dinâmicas (com :id) - sempre depois das estáticas
-router.get('/:id/posicao', AgendamentoController.verFila);
-router.put('/:id/confirmar', AgendamentoController.confirmar);
-router.put('/:id/cancelar', AgendamentoController.cancelar);
-router.put('/:id/status', AgendamentoController.alterarStatus);
-router.put('/:id/mover', AgendamentoController.mover);
-router.post('/:id/prontuario', upload.single('file'), AgendamentoController.enviarProntuario);
-router.post('/:id/feedback', AgendamentoController.receberFeedback);
+// === ROTAS COM TOKEN (TV usa token próprio, usuários admin usam JWT normal) ===
+router.get('/tv/dados', auth, AgendamentoController.dadosTv);
+
+// === ROTAS PROTEGIDAS (requerem login) ===
+router.post('/encaixe', auth, AgendamentoController.encaixar);
+router.post('/trocar', auth, AgendamentoController.trocar);
+router.get('/pendentes', auth, AgendamentoController.listarPendentes);
+router.get('/recepcao/dia', auth, AgendamentoController.listarPorDia);
+router.get('/medico/:medico_id', auth, AgendamentoController.listarPorMedico);
+router.get('/paciente/:paciente_id/historico', auth, AgendamentoController.listarHistorico);
+router.put('/:id/confirmar', auth, AgendamentoController.confirmar);
+router.put('/:id/cancelar', auth, AgendamentoController.cancelar);
+router.put('/:id/status', auth, AgendamentoController.alterarStatus);
+router.put('/:id/mover', auth, AgendamentoController.mover);
+router.post('/:id/prontuario', auth, upload.single('file'), AgendamentoController.enviarProntuario);
 
 module.exports = router;

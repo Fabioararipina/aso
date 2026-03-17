@@ -51,6 +51,7 @@ cron.schedule('0 0 * * *', async () => {
 }, { timezone: 'America/Sao_Paulo' });
 
 // ROTAS
+app.use('/auth', require('./routes/auth'));
 app.use('/api/medicos', require('./routes/medicos'));
 app.use('/api/agendamentos', require('./routes/agendamentos'));
 app.use('/api/tv-midias', require('./routes/tv_midias'));
@@ -61,8 +62,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'API Rodando' });
 });
 
+const auth = require('./middleware/auth');
+
 // Endpoint para reconectar WhatsApp
-app.post('/api/whatsapp/reconnect', async (req, res) => {
+app.post('/api/whatsapp/reconnect', auth, async (req, res) => {
   try {
     console.log('[API] Solicitação de reconexão recebida');
     await whatsappService.reconectar();
@@ -74,7 +77,7 @@ app.post('/api/whatsapp/reconnect', async (req, res) => {
 });
 
 // Endpoint para status do WhatsApp
-app.get('/api/whatsapp/status', (req, res) => {
+app.get('/api/whatsapp/status', auth, (req, res) => {
   res.json({
     status: whatsappService.getStatus(),
     isReady: whatsappService.isReady,
@@ -83,18 +86,18 @@ app.get('/api/whatsapp/status', (req, res) => {
 });
 
 // Endpoints para pausar/retomar envio de mensagens
-app.post('/api/whatsapp/pausar', (req, res) => {
+app.post('/api/whatsapp/pausar', auth, (req, res) => {
   whatsappService.pausarMensagens();
   res.json({ mensagensPausadas: true });
 });
 
-app.post('/api/whatsapp/retomar', (req, res) => {
+app.post('/api/whatsapp/retomar', auth, (req, res) => {
   whatsappService.retomarMensagens();
   res.json({ mensagensPausadas: false });
 });
 
 // Endpoint para enviar mensagem de teste
-app.post('/api/whatsapp/enviar', async (req, res) => {
+app.post('/api/whatsapp/enviar', auth, async (req, res) => {
   // FIX: Adiciona checagem para previnir crash se o corpo da requisição for nulo.
   if (!req.body) {
     console.log('[API] Recebida solicitação para /api/whatsapp/enviar sem corpo. Ignorando.');

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 
+const TV_TOKEN_KEY = 'tv_token';
+
 export default function TvPage() {
   const [lista, setLista] = useState([]);
   const [chamadaAtual, setChamadaAtual] = useState(null);
@@ -16,6 +18,13 @@ export default function TvPage() {
 
   const [currentTime, setCurrentTime] = useState('--:--');
   const [currentDate, setCurrentDate] = useState('');
+
+  // Controle de autenticação da TV
+  const [tvConfigurada, setTvConfigurada] = useState(false);
+  const [tokenVerificado, setTokenVerificado] = useState(false);
+  const [codigoInput, setCodigoInput] = useState('');
+  const [erroLogin, setErroLogin] = useState('');
+  const [fazendoLogin, setFazendoLogin] = useState(false);
 
   // Ref para manter o AudioContext vivo entre renders
   const audioCtxRef = useRef(null);
@@ -137,7 +146,41 @@ export default function TvPage() {
     }
   };
 
+  // Verifica se a TV já tem token salvo
   useEffect(() => {
+    const stored = localStorage.getItem(TV_TOKEN_KEY);
+    if (stored) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${stored}`;
+      setTvConfigurada(true);
+    }
+    setTokenVerificado(true);
+  }, []);
+
+  // Função para fazer login com o código digitado na TV
+  async function handleLoginTv(e) {
+    e.preventDefault();
+    setErroLogin('');
+    setFazendoLogin(true);
+    try {
+      const res = await axios.post(`${API_URL}/auth/login`, {
+        usuario: 'tv',
+        senha: codigoInput.trim().toUpperCase(),
+      });
+      const { token } = res.data;
+      localStorage.setItem(TV_TOKEN_KEY, token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setTvConfigurada(true);
+    } catch (err) {
+      setErroLogin('Código inválido. Verifique com o administrador.');
+    } finally {
+      setFazendoLogin(false);
+    }
+  }
+
+  useEffect(() => {
+    // Só inicializa a TV depois do token confirmado
+    if (!tvConfigurada) return;
+
     // Força viewport correto no Silk/FireTV — evita zoom indesejado
     let meta = document.querySelector('meta[name="viewport"]');
     if (!meta) {
@@ -217,7 +260,7 @@ export default function TvPage() {
       clearInterval(clockInterval);
       document.removeEventListener('click', unlockAudio);
     };
-  }, []);
+  }, [tvConfigurada]);
 
   useEffect(() => {
     if (midias.length === 0) return;
@@ -258,6 +301,66 @@ export default function TvPage() {
     if (status === 'PRESENTE') return { background: '#dcfce7', color: '#15803d' };
     return { background: '#f3f4f6', color: '#6b7280' };
   };
+
+  // Aguarda verificação do token
+  if (!tokenVerificado) return null;
+
+  // TV não configurada: mostra tela de código
+  if (!tvConfigurada) {
+    return (
+      <div style={{
+        width: '100vw', height: '100vh',
+        background: '#111827', color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'sans-serif',
+      }}>
+        <div style={{
+          background: '#1f2937', borderRadius: 24, padding: '3rem 4rem',
+          maxWidth: 480, width: '90%', textAlign: 'center',
+          border: '1px solid #374151',
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📺</div>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 900, marginBottom: '0.5rem' }}>TV não configurada</h1>
+          <p style={{ color: '#9ca3af', fontSize: '0.95rem', marginBottom: '2rem', lineHeight: 1.5 }}>
+            Peça ao administrador do sistema para gerar um código de acesso em{' '}
+            <strong style={{ color: '#60a5fa' }}>Admin TV → Acesso da TV</strong>{' '}
+            e digite-o abaixo.
+          </p>
+          <form onSubmit={handleLoginTv} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <input
+              type="text"
+              value={codigoInput}
+              onChange={(e) => setCodigoInput(e.target.value.toUpperCase())}
+              placeholder="Ex: ABCD-1234-WXYZ"
+              maxLength={14}
+              style={{
+                background: '#111827', border: '2px solid #374151', borderRadius: 12,
+                color: '#fff', fontSize: '1.5rem', fontFamily: 'monospace',
+                fontWeight: 700, letterSpacing: '0.15em', padding: '0.75rem 1rem',
+                textAlign: 'center', outline: 'none',
+              }}
+              autoFocus
+            />
+            {erroLogin && (
+              <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{erroLogin}</p>
+            )}
+            <button
+              type="submit"
+              disabled={fazendoLogin || codigoInput.length < 14}
+              style={{
+                background: fazendoLogin || codigoInput.length < 14 ? '#374151' : '#2563eb',
+                color: '#fff', fontWeight: 700, fontSize: '1rem',
+                padding: '0.875rem', borderRadius: 12, border: 'none',
+                cursor: fazendoLogin || codigoInput.length < 14 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {fazendoLogin ? 'Verificando...' : 'Configurar TV'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
