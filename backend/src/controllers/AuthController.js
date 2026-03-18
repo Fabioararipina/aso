@@ -23,6 +23,7 @@ const AuthController = {
       if (!senhaCorreta) {
         return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
       }
+      const expiresIn = user.perfil === 'TV' ? '365d' : '8h';
       const token = jwt.sign(
         {
           id: user.id,
@@ -32,7 +33,7 @@ const AuthController = {
           medico_id: user.medico_id || null,
         },
         JWT_SECRET,
-        { expiresIn: '8h' }
+        { expiresIn }
       );
       res.json({ token, perfil: user.perfil, nome: user.nome });
     } catch (err) {
