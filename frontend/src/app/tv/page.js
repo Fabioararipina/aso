@@ -267,6 +267,8 @@ export default function TvPage() {
     const currentSlide = midias[currentSlideIndex];
     if (currentSlide.tipo === 'TEMPO' && !weather) fetchWeather(currentSlide.conteudo);
     else if (currentSlide.tipo === 'NOTICIA' && !news) fetchNews(currentSlide.conteudo);
+    // Vídeos avançam pelo onEnded do <video>, não por timeout
+    if (currentSlide.tipo === 'VIDEO') return;
     const timer = setTimeout(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
       setWeather(null);
