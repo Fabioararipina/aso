@@ -30,9 +30,9 @@ export function isAuthenticated() {
 
 export async function login(usuario, senha) {
   const apiUrl =
-    typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-      ? window.location.origin
-      : 'http://localhost:5000';
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:5000'
+      : 'https://api-agendamento.primeatende.com.br';
 
   const res = await fetch(`${apiUrl}/auth/login`, {
     method: 'POST',
