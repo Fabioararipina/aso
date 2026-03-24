@@ -3,8 +3,11 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const whatsappService = require('./services/whatsapp/whatsappService');
 require('dotenv').config();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'TROQUE_ESSA_CHAVE_NO_ENV';
 
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +31,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.set('io', io);
+
+// Middleware JWT no Socket.IO: valida token e marca sockets de admin
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    try {
+      socket.usuario = jwt.verify(token, JWT_SECRET);
+    } catch (e) {
+      // Token inválido — socket conecta mas sem perfil
+    }
+  }
+  next();
+});
 
 // Inicializa WhatsApp
 whatsappService.setIo(io);
@@ -120,11 +136,15 @@ app.post('/api/whatsapp/enviar', auth, async (req, res) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
+  console.log('Cliente conectado:', socket.id, '| perfil:', socket.usuario?.perfil || 'público');
 
-  // Envia o estado atual para o novo cliente
-  const currentStatus = whatsappService.isReady ? 'conectado' : 'desconectado';
-  socket.emit('whatsapp-status', { status: currentStatus });
+  // Sockets de admin entram na room privada que recebe o QR do WhatsApp
+  if (socket.usuario?.perfil === 'admin') {
+    socket.join('sala-admin');
+    // Envia o estado atual do WhatsApp apenas para admins
+    const currentStatus = whatsappService.isReady ? 'conectado' : 'desconectado';
+    socket.emit('whatsapp-status', { status: currentStatus });
+  }
 
   socket.on('disconnect', () => {
     console.log('Cliente desconectado:', socket.id);

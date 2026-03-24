@@ -106,7 +106,7 @@ class WhatsAppService {
     }
 
     console.log('[WhatsAppService] Inicializando cliente Baileys...');
-    this.io.emit('whatsapp-status', { status: 'iniciando' });
+    this.io.to('sala-admin').emit('whatsapp-status', { status: 'iniciando' });
 
     const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '../../../whatsapp-session-baileys'));
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -132,8 +132,8 @@ class WhatsAppService {
         console.log('[WhatsAppService] QR Code gerado');
         try {
           const qrBase64 = await QRCode.toDataURL(qr);
-          this.io.emit('whatsapp-qr', qrBase64);
-          this.io.emit('whatsapp-status', { status: 'aguardando_leitura' });
+          this.io.to('sala-admin').emit('whatsapp-qr', qrBase64);
+          this.io.to('sala-admin').emit('whatsapp-status', { status: 'aguardando_leitura' });
         } catch (e) {
             console.error('[WhatsAppService] Erro ao converter QR para base64', e);
         }
@@ -146,8 +146,8 @@ class WhatsAppService {
         console.log('========================================');
         this.isReady = true;
         this.qrCode = null;
-        this.io.emit('whatsapp-status', { status: 'conectado' });
-        this.io.emit('whatsapp-qr', null); // Limpa o QR da tela
+        this.io.to('sala-admin').emit('whatsapp-status', { status: 'conectado' });
+        this.io.to('sala-admin').emit('whatsapp-qr', null); // Limpa o QR da tela
         console.log('[WhatsAppService] Eventos emitidos para o frontend');
       } else if (connection === 'close') {
         this.isReady = false;
@@ -164,22 +164,22 @@ class WhatsAppService {
         if (isStreamError) {
           // Após pareamento, o Baileys precisa reiniciar - isso é NORMAL
           console.log('[WhatsAppService] Stream error após pareamento - reiniciando conexão...');
-          this.io.emit('whatsapp-status', { status: 'reconectando' });
+          this.io.to('sala-admin').emit('whatsapp-status', { status: 'reconectando' });
           setTimeout(() => this.inicializar(), 2000);
         } else if (isLoggedOut) {
           console.log('[WhatsAppService] Deslogado. Limpando sessão para novo QR...');
           await this.limparSessao();
-          this.io.emit('whatsapp-status', { status: 'deslogado' });
+          this.io.to('sala-admin').emit('whatsapp-status', { status: 'deslogado' });
           await this.inicializar();
         } else {
           // Outros erros - tentar reconectar
           console.log('[WhatsAppService] Erro de conexão - tentando reconectar...');
-          this.io.emit('whatsapp-status', { status: 'reconectando' });
+          this.io.to('sala-admin').emit('whatsapp-status', { status: 'reconectando' });
           setTimeout(() => this.inicializar(), 3000);
         }
       } else if (connection === 'connecting') {
         console.log('[WhatsAppService] Conectando...');
-        this.io.emit('whatsapp-status', { status: 'conectando' });
+        this.io.to('sala-admin').emit('whatsapp-status', { status: 'conectando' });
       }
     });
   }

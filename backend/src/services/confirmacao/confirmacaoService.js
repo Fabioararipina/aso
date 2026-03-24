@@ -28,12 +28,12 @@ class ConfirmacaoService {
     try {
       // Busca pendentes criados nas últimas 24h
       const query = `
-        SELECT a.id, p.nome, p.whatsapp, a.created_at, m.nome as medico_nome, a.horario
+        SELECT a.id, p.nome, p.whatsapp, a.criado_em, m.nome as medico_nome, a.horario
         FROM agendamentos a
         JOIN pacientes p ON a.paciente_id = p.id
         JOIN medicos m ON a.medico_id = m.id
         WHERE a.status = 'PENDENTE'
-        AND a.created_at > NOW() - INTERVAL '24 hours'
+        AND a.criado_em > NOW() - INTERVAL '24 hours'
       `;
       
       const { rows } = await db.query(query);
@@ -48,7 +48,7 @@ class ConfirmacaoService {
 
   async analisarAgendamento(item) {
     const agora = new Date();
-    const criadoEm = new Date(item.created_at);
+    const criadoEm = new Date(item.criado_em);
     const diffHoras = Math.floor((agora - criadoEm) / (1000 * 60 * 60));
 
     // Lógica de Régua de Cobrança

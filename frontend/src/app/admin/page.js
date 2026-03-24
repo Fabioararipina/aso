@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-
 import axios from 'axios';
+import { getToken } from '../../lib/auth';
 
 export default function AdminPage() {
   const [status, setStatus] = useState('desconectado');
@@ -28,7 +28,7 @@ export default function AdminPage() {
 
 
 
-            const socket = io(API_URL);
+            const socket = io(API_URL, { auth: { token: getToken() } });
 
 
 
