@@ -454,7 +454,6 @@ export default function TvPage() {
                     src={`${API_URL}/uploads/tv/${midias[currentSlideIndex].conteudo}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     autoPlay
-                    muted
                     playsInline
                     onEnded={() => {
                       setCurrentSlideIndex((prev) => (prev + 1) % midias.length);
