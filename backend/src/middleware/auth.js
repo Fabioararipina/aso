@@ -17,4 +17,7 @@ function auth(req, res, next) {
   }
 }
 
+// Named export for routes/index.js compatibility
+auth.authenticateToken = auth;
+
 module.exports = auth;

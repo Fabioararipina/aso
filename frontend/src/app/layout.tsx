@@ -13,10 +13,14 @@ export default function RootLayout({
   const pathname = usePathname();
 
   // Lista de rotas que DEVEM ter o layout administrativo e autenticação
-  const adminRoutes = ['/portal', '/recepcao', '/medico', '/admin'];
+  const adminRoutes = ['/portal', '/recepcao', '/medico', '/admin', '/operador'];
 
-  // Verifica se a rota atual começa com algum dos prefixos admin (ex: /admin/horarios)
-  const isAdmin = adminRoutes.some(route => pathname?.startsWith(route)) && pathname !== '/tv';
+  // Rotas públicas (sem autenticação): TV panels, login
+  const publicPrefixes = ['/tv', '/login'];
+
+  // Verifica se a rota atual começa com algum dos prefixos admin
+  const isAdmin = adminRoutes.some(route => pathname?.startsWith(route)) &&
+    !publicPrefixes.some(p => pathname?.startsWith(p));
 
   return (
     <html lang="pt-br">
