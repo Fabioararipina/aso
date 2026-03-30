@@ -173,8 +173,8 @@ export default function RecepcaoAsoPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-20 h-20 bg-[#e8f5ee] rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-[#3d7a52]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -187,7 +187,7 @@ export default function RecepcaoAsoPage() {
           </p>
           <button
             onClick={resetForm}
-            className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition"
+            className="w-full bg-[#3d7a52] text-white font-bold py-3 rounded-xl hover:bg-[#2d5c3e] transition"
           >
             Novo Check-in
           </button>
@@ -210,7 +210,7 @@ export default function RecepcaoAsoPage() {
           {[1, 2, 3, 4].map(s => (
             <div
               key={s}
-              className={`flex-1 h-2 rounded-full transition-all ${s <= step ? 'bg-blue-600' : 'bg-gray-200'}`}
+              className={`flex-1 h-2 rounded-full transition-all ${s <= step ? 'bg-[#3d7a52]' : 'bg-gray-200'}`}
             />
           ))}
         </div>
@@ -237,7 +237,7 @@ export default function RecepcaoAsoPage() {
                   value={nome}
                   onChange={e => setNome(e.target.value)}
                   placeholder="Nome do paciente"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                   autoFocus
                 />
               </div>
@@ -250,7 +250,7 @@ export default function RecepcaoAsoPage() {
                   value={whatsapp}
                   onChange={e => setWhatsapp(maskWhatsapp(e.target.value))}
                   placeholder="(87) 99999-9999"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                 />
               </div>
               <div>
@@ -262,7 +262,7 @@ export default function RecepcaoAsoPage() {
                   value={cpf}
                   onChange={e => setCpf(maskCpf(e.target.value))}
                   placeholder="000.000.000-00"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                 />
               </div>
               <div>
@@ -273,7 +273,7 @@ export default function RecepcaoAsoPage() {
                   type="date"
                   value={dataNascimento}
                   onChange={e => setDataNascimento(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                 />
               </div>
             </div>
@@ -292,7 +292,7 @@ export default function RecepcaoAsoPage() {
                   value={empresa}
                   onChange={e => setEmpresa(e.target.value)}
                   placeholder="Nome da empresa"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                   autoFocus
                 />
               </div>
@@ -305,7 +305,7 @@ export default function RecepcaoAsoPage() {
                   value={cnpj}
                   onChange={e => setCnpj(maskCnpj(e.target.value))}
                   placeholder="00.000.000/0001-00"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                 />
               </div>
               <div>
@@ -317,7 +317,7 @@ export default function RecepcaoAsoPage() {
                   value={funcao}
                   onChange={e => setFuncao(e.target.value)}
                   placeholder="Ex: Operador de Máquinas"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition"
                 />
               </div>
               <div>
@@ -327,7 +327,7 @@ export default function RecepcaoAsoPage() {
                 <select
                   value={tipoAso}
                   onChange={e => setTipoAso(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition bg-white"
                 >
                   {TIPOS_ASO.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -352,13 +352,13 @@ export default function RecepcaoAsoPage() {
                       onClick={() => toggleSala(sala.id)}
                       className={`rounded-xl p-4 text-left border-2 transition-all ${
                         selected
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
+                          ? 'border-[#3d7a52] bg-[#e8f5ee] text-[#3d7a52]'
                           : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                       }`}
                     >
                       <div className="font-bold text-sm">{sala.nome}</div>
                       {selected && (
-                        <div className="text-xs text-blue-500 mt-1">Selecionado</div>
+                        <div className="text-xs text-[#3d7a52] mt-1">Selecionado</div>
                       )}
                     </button>
                   );
@@ -389,7 +389,7 @@ export default function RecepcaoAsoPage() {
                   <p className="font-bold text-gray-800">{empresa}</p>
                   {cnpj && <p className="text-gray-500 text-sm">CNPJ: {cnpj}</p>}
                   <p className="text-gray-600 text-sm">{funcao}</p>
-                  <span className="inline-block mt-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-semibold">
+                  <span className="inline-block mt-1 bg-[#e8f5ee] text-[#3d7a52] text-xs px-2 py-1 rounded-full font-semibold">
                     {tipoLabel}
                   </span>
                 </div>
@@ -397,7 +397,7 @@ export default function RecepcaoAsoPage() {
                   <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Salas</p>
                   <div className="flex flex-wrap gap-2">
                     {salasSelecionadas.map(id => (
-                      <span key={id} className="bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                      <span key={id} className="bg-[#3d7a52] text-white text-xs px-3 py-1 rounded-full font-semibold">
                         {salaLabel(id)}
                       </span>
                     ))}
@@ -429,7 +429,7 @@ export default function RecepcaoAsoPage() {
               <button
                 type="button"
                 onClick={nextStep}
-                className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition"
+                className="flex-1 bg-[#3d7a52] text-white font-bold py-3 rounded-xl hover:bg-[#2d5c3e] transition"
               >
                 Continuar
               </button>

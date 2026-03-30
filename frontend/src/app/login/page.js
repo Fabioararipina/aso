@@ -59,15 +59,13 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#5b8dfd] to-[#4a7ecc] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#3d7a52] to-[#2d5c3e] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
         {/* Logo / Título */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#5b8dfd] to-[#4a7ecc] rounded-2xl mb-4 shadow-lg">
-            <span className="text-2xl">🏥</span>
-          </div>
+          <img src="/logo-aso.png" alt="ASO Saúde" className="h-16 mx-auto mb-4" />
           <h1 className="text-2xl font-black text-gray-800">ASO Saúde</h1>
-          <p className="text-gray-400 text-sm mt-1">Painel de Gestão</p>
+          <p className="text-gray-400 text-sm mt-1">Medicina do Trabalho</p>
         </div>
 
         {/* Formulário */}
@@ -84,7 +82,7 @@ function LoginForm() {
               required
               autoFocus
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 placeholder-gray-400
-                         focus:outline-none focus:ring-2 focus:ring-[#5b8dfd] focus:border-transparent transition"
+                         focus:outline-none focus:ring-2 focus:ring-[#3d7a52] focus:border-[#3d7a52] transition"
             />
           </div>
 
@@ -99,7 +97,7 @@ function LoginForm() {
               placeholder="Digite sua senha"
               required
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 placeholder-gray-400
-                         focus:outline-none focus:ring-2 focus:ring-[#5b8dfd] focus:border-transparent transition"
+                         focus:outline-none focus:ring-2 focus:ring-[#3d7a52] focus:border-[#3d7a52] transition"
             />
           </div>
 
@@ -112,7 +110,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={carregando}
-            className="w-full bg-gradient-to-r from-[#5b8dfd] to-[#4a7ecc] text-white font-bold py-3 px-4
+            className="w-full bg-[#3d7a52] hover:bg-[#2d5c3e] text-white font-bold py-3 px-4
                        rounded-xl shadow-lg hover:shadow-xl transition-all duration-200
                        disabled:opacity-60 disabled:cursor-not-allowed"
           >

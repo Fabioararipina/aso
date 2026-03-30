@@ -7,9 +7,9 @@ import io from 'socket.io-client';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const SALA_COLORS = {
-  PENDENTE: { bg: '#fef9c3', border: '#eab308' },
-  EM_ATENDIMENTO: { bg: '#dbeafe', border: '#3b82f6' },
-  CONCLUIDO_SALA: { bg: '#dcfce7', border: '#22c55e' },
+  PENDENTE: { bg: '#fef9c3', border: '#f59e0b' },
+  EM_ATENDIMENTO: { bg: '#e8f5ee', border: '#3d7a52' },
+  CONCLUIDO_SALA: { bg: '#f3f4f6', border: '#6b7280' },
 };
 
 // After CONCLUIDO, keep visible for 2 minutes then remove
@@ -268,8 +268,8 @@ export default function TvAsoPage() {
                   padding: '1.5vh 1.5vw',
                   marginBottom: '0.6vh',
                   borderRadius: '1vw',
-                  background: isConcluido ? '#0f2b1f' : isEmAtendimento ? '#0f1f40' : '#111f38',
-                  border: `1px solid ${isConcluido ? '#166534' : isEmAtendimento ? '#1d4ed8' : '#1e3a5f'}`,
+                  background: isConcluido ? '#0f2b1f' : isEmAtendimento ? '#0d2b1a' : '#111f38',
+                  border: `1px solid ${isConcluido ? '#166534' : isEmAtendimento ? '#3d7a52' : '#1e3a5f'}`,
                   alignItems: 'center',
                   transition: 'all 0.3s ease',
                   opacity: isConcluido ? 0.6 : 1,
@@ -280,7 +280,7 @@ export default function TvAsoPage() {
                   <p style={{
                     fontSize: '2.2vw',
                     fontWeight: 900,
-                    color: isConcluido ? '#4ade80' : isEmAtendimento ? '#93c5fd' : '#f1f5f9',
+                    color: isConcluido ? '#4ade80' : isEmAtendimento ? '#a7f3d0' : '#f1f5f9',
                     textTransform: 'uppercase',
                     lineHeight: 1.1,
                     letterSpacing: '0.03em',
@@ -290,7 +290,7 @@ export default function TvAsoPage() {
                   {isEmAtendimento && (
                     <span style={{
                       display: 'inline-block', marginTop: '0.5vh',
-                      background: '#1d4ed8', color: '#fff',
+                      background: '#3d7a52', color: '#fff',
                       fontSize: '0.8vw', fontWeight: 700,
                       padding: '0.2vh 0.8vw', borderRadius: 999,
                       textTransform: 'uppercase', letterSpacing: '0.1em',
@@ -327,28 +327,28 @@ export default function TvAsoPage() {
       {chamadaAtual && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(29, 78, 216, 0.95)',
+          background: 'rgba(45, 92, 62, 0.95)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           animation: 'pulse 1s infinite',
         }}>
-          <p style={{ fontSize: '2vw', color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '2vh' }}>
+          <p style={{ fontSize: '2vw', color: '#a7f3d0', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '2vh' }}>
             Por favor, dirija-se à sala
           </p>
           <div style={{
-            background: '#fff', color: '#1e3a8a',
+            background: '#fff', color: '#2d5c3e',
             padding: '3vh 5vw', borderRadius: '2vw',
-            border: '8px solid #93c5fd', marginBottom: '2vh',
+            border: '8px solid #a7f3d0', marginBottom: '2vh',
           }}>
             <h2 style={{ fontSize: '6vw', fontWeight: 900, textAlign: 'center', lineHeight: 1 }}>
               {chamadaAtual.paciente_nome}
             </h2>
           </div>
           <div style={{
-            background: '#1e40af', padding: '2vh 3vw', borderRadius: '1.5vw',
+            background: '#3d7a52', padding: '2vh 3vw', borderRadius: '1.5vw',
             textAlign: 'center',
           }}>
-            <p style={{ fontSize: '1.2vw', color: '#93c5fd', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em' }}>Sala</p>
+            <p style={{ fontSize: '1.2vw', color: '#a7f3d0', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em' }}>Sala</p>
             <h3 style={{ fontSize: '3vw', fontWeight: 900, color: '#fff' }}>{chamadaAtual.sala_nome}</h3>
           </div>
         </div>

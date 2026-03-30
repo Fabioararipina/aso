@@ -97,7 +97,7 @@ export default function UsuariosPage() {
         </div>
         <button
           onClick={() => { setShowForm(!showForm); setErro(''); setSucesso(''); }}
-          className="bg-[#5b8dfd] hover:bg-[#4a7ecc] text-white font-bold px-5 py-2.5 rounded-xl shadow transition"
+          className="bg-[#3d7a52] hover:bg-[#2d5c3e] text-white font-bold px-5 py-2.5 rounded-xl shadow transition"
         >
           {showForm ? 'Cancelar' : '+ Novo Usuário'}
         </button>
@@ -123,7 +123,7 @@ export default function UsuariosPage() {
                 required
                 value={form.nome}
                 onChange={e => setForm({ ...form, nome: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52]"
                 placeholder="Ex: João da Silva"
               />
             </div>
@@ -134,7 +134,7 @@ export default function UsuariosPage() {
                 required
                 value={form.usuario}
                 onChange={e => setForm({ ...form, usuario: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52]"
                 placeholder="Ex: joao.silva"
               />
             </div>
@@ -146,7 +146,7 @@ export default function UsuariosPage() {
                 minLength={4}
                 value={form.senha}
                 onChange={e => setForm({ ...form, senha: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52]"
                 placeholder="Mínimo 4 caracteres"
               />
             </div>
@@ -155,7 +155,7 @@ export default function UsuariosPage() {
               <select
                 value={form.perfil}
                 onChange={e => setForm({ ...form, perfil: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52]"
               >
                 {PERFIS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -165,7 +165,7 @@ export default function UsuariosPage() {
               <select
                 value={form.sala_id}
                 onChange={e => setForm({ ...form, sala_id: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52]"
               >
                 <option value="">Nenhuma</option>
                 {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
@@ -176,7 +176,7 @@ export default function UsuariosPage() {
             <button
               type="submit"
               disabled={salvando}
-              className="bg-[#5b8dfd] hover:bg-[#4a7ecc] disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl shadow transition"
+              className="bg-[#3d7a52] hover:bg-[#2d5c3e] disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl shadow transition"
             >
               {salvando ? 'Salvando...' : 'Criar Usuário'}
             </button>
@@ -210,7 +210,7 @@ export default function UsuariosPage() {
                   <td className="px-5 py-3">
                     <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full
                       ${u.perfil === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                        u.perfil === 'RECEPCAO' ? 'bg-blue-100 text-blue-700' :
+                        u.perfil === 'RECEPCAO' ? 'bg-[#e8f5ee] text-[#3d7a52]' :
                         'bg-green-100 text-green-700'}`}>
                       {u.perfil}
                     </span>

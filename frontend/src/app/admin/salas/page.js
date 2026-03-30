@@ -100,7 +100,7 @@ export default function AdminSalasPage() {
                     max={120}
                     value={tempos[sala.id] ?? sala.tempo_medio_min}
                     onChange={e => setTempos(prev => ({ ...prev, [sala.id]: e.target.value }))}
-                    className="w-20 border-2 border-gray-200 rounded-xl px-3 py-2 text-center text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    className="w-20 border-2 border-gray-200 rounded-xl px-3 py-2 text-center text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-[#3d7a52] focus:border-transparent transition"
                   />
                   <span className="text-sm text-gray-400 font-medium">min</span>
                 </div>
@@ -116,7 +116,7 @@ export default function AdminSalasPage() {
                       ? 'bg-red-100 text-red-700'
                       : !changed
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-[#3d7a52] text-white hover:bg-[#2d5c3e]'
                   }`}
                 >
                   {isSaving ? '...' : fb === 'ok' ? 'Salvo!' : fb === 'error' ? 'Erro' : 'Salvar'}
@@ -127,8 +127,8 @@ export default function AdminSalasPage() {
         </div>
 
         {/* Info */}
-        <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-          <p className="text-sm text-blue-700">
+        <div className="mt-6 bg-[#e8f5ee] border border-[#d1e8da] rounded-2xl p-4">
+          <p className="text-sm text-[#3d7a52]">
             <strong>Como funciona:</strong> O tempo médio é usado para calcular a previsão de espera
             de cada paciente nas demais salas. Valores mais precisos melhoram a experiência do paciente.
           </p>

@@ -8,9 +8,9 @@ import io from 'socket.io-client';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const STATUS_COLORS = {
-  PENDENTE: { bg: '#fef9c3', border: '#eab308', text: '#854d0e', label: 'Aguardando' },
-  EM_ATENDIMENTO: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af', label: 'Em Atendimento' },
-  CONCLUIDO_SALA: { bg: '#dcfce7', border: '#22c55e', text: '#15803d', label: 'Concluído' },
+  PENDENTE: { bg: '#fef9c3', border: '#f59e0b', text: '#854d0e', label: 'Aguardando' },
+  EM_ATENDIMENTO: { bg: '#e8f5ee', border: '#3d7a52', text: '#2d5c3e', label: 'Em Atendimento' },
+  CONCLUIDO_SALA: { bg: '#f3f4f6', border: '#6b7280', text: '#374151', label: 'Concluído' },
 };
 
 function SalaSquare({ status, nome }) {
@@ -128,7 +128,7 @@ export default function OperadorPage() {
         {/* Em Atendimento */}
         {emAtendimento.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-sm font-bold uppercase text-blue-400 tracking-wider mb-3">
+            <h2 className="text-sm font-bold uppercase text-[#3d7a52] tracking-wider mb-3">
               Em Atendimento
             </h2>
             <div className="space-y-3">
@@ -183,8 +183,8 @@ function PatientCard({ item, position, onChamar, onConcluir, actionLoading }) {
   return (
     <div
       style={{
-        background: isEmAtendimento ? '#1e3a8a' : '#1f2937',
-        border: `1px solid ${isEmAtendimento ? '#3b82f6' : '#374151'}`,
+        background: isEmAtendimento ? '#0d2b1a' : '#1f2937',
+        border: `1px solid ${isEmAtendimento ? '#3d7a52' : '#374151'}`,
         borderRadius: 16,
         padding: '16px 20px',
         display: 'flex',
@@ -205,7 +205,7 @@ function PatientCard({ item, position, onChamar, onConcluir, actionLoading }) {
       {isEmAtendimento && (
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
-          background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: '#3d7a52', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 20, flexShrink: 0,
         }}>
           ▶
@@ -236,7 +236,7 @@ function PatientCard({ item, position, onChamar, onConcluir, actionLoading }) {
             onClick={onChamar}
             disabled={isCalling}
             style={{
-              background: isCalling ? '#374151' : '#2563eb',
+              background: isCalling ? '#374151' : '#3d7a52',
               color: '#fff', fontWeight: 700, fontSize: 14,
               padding: '10px 20px', borderRadius: 12, border: 'none',
               cursor: isCalling ? 'not-allowed' : 'pointer',
