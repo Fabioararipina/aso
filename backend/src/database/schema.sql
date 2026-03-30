@@ -76,3 +76,14 @@ CREATE INDEX IF NOT EXISTS idx_atendimentos_status ON atendimentos(status);
 CREATE INDEX IF NOT EXISTS idx_atendimentos_criado_em ON atendimentos(criado_em);
 CREATE INDEX IF NOT EXISTS idx_fila_salas_atendimento ON fila_salas(atendimento_id);
 CREATE INDEX IF NOT EXISTS idx_fila_salas_sala_status ON fila_salas(sala_id, status);
+
+CREATE TABLE IF NOT EXISTS tv_midias (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(200) NOT NULL,
+  tipo VARCHAR(10) CHECK (tipo IN ('IMAGEM','VIDEO')) NOT NULL,
+  arquivo VARCHAR(500) NOT NULL,
+  duracao_seg INTEGER NOT NULL DEFAULT 10,
+  ordem INTEGER NOT NULL DEFAULT 0,
+  ativo BOOLEAN DEFAULT true,
+  criado_em TIMESTAMP DEFAULT NOW()
+);

@@ -18,6 +18,7 @@ export default function AdminLayout({ children }) {
     { name: 'Recepção', path: '/recepcao/aso', icon: '🏥' },
     { name: 'Salas', path: '/admin/salas', icon: '🚪' },
     { name: 'Usuários', path: '/admin/usuarios', icon: '👥' },
+    { name: 'TV Config', path: '/admin/tv', icon: '⚙️' },
     { name: 'TV Painel', path: '/tv/aso', icon: '📺' },
   ];
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 
@@ -30,6 +30,131 @@ function SalaSquare({ status, nome }) {
       <span style={{ fontSize: '0.7vw', color: '#94a3b8', maxWidth: '4vw', textAlign: 'center', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {nome}
       </span>
+    </div>
+  );
+}
+
+function MediaCarousel({ apiUrl }) {
+  const [midias, setMidias] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const videoRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const fetchMidias = useCallback(async () => {
+    try {
+      const res = await axios.get(`${apiUrl}/api/tv/midias`);
+      setMidias(res.data);
+    } catch (err) {
+      console.error('[TV-Media] Erro ao buscar mídias:', err.message);
+    }
+  }, [apiUrl]);
+
+  const advanceSlide = useCallback(() => {
+    setCurrentIndex(prev => (midias.length > 0 ? (prev + 1) % midias.length : 0));
+  }, [midias.length]);
+
+  const scheduleNext = useCallback((duracao) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(advanceSlide, duracao * 1000);
+  }, [advanceSlide]);
+
+  useEffect(() => {
+    fetchMidias();
+    const interval = setInterval(fetchMidias, 5 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [fetchMidias]);
+
+  // Reset index when midias list changes
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [midias.length]);
+
+  // Schedule timer when slide changes
+  useEffect(() => {
+    if (midias.length === 0) return;
+    const item = midias[currentIndex];
+    if (!item) return;
+    if (item.tipo === 'IMAGEM') {
+      scheduleNext(item.duracao_seg || 10);
+    }
+    // For VIDEO, advance is triggered by onEnded
+  }, [currentIndex, midias, scheduleNext]);
+
+  if (midias.length === 0) {
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#0a1628',
+        gap: '2vh',
+      }}>
+        <img
+          src="/logo-aso.png"
+          alt="ASO Saúde"
+          style={{ maxWidth: '60%', maxHeight: '40%', objectFit: 'contain', opacity: 0.5 }}
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+        <p style={{ color: '#334155', fontSize: '1.2vw', fontWeight: 600 }}>
+          ASO Saúde
+        </p>
+      </div>
+    );
+  }
+
+  const item = midias[currentIndex];
+  if (!item) return null;
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#000', overflow: 'hidden' }}>
+      {item.tipo === 'IMAGEM' ? (
+        <img
+          key={item.id}
+          src={`${apiUrl}${item.arquivo}`}
+          alt={item.nome}
+          style={{
+            width: '100%', height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      ) : (
+        <video
+          key={item.id}
+          ref={videoRef}
+          src={`${apiUrl}${item.arquivo}`}
+          autoPlay
+          muted={false}
+          loop={false}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onEnded={advanceSlide}
+          onError={advanceSlide}
+        />
+      )}
+
+      {/* Slide indicator dots */}
+      {midias.length > 1 && (
+        <div style={{
+          position: 'absolute', bottom: '1.5vh', left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', gap: '0.5vw',
+        }}>
+          {midias.map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: i === currentIndex ? '1.4vw' : '0.6vw',
+                height: '0.6vw',
+                borderRadius: 999,
+                background: i === currentIndex ? '#3d7a52' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.3s ease',
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -176,7 +301,7 @@ export default function TvAsoPage() {
       background: '#0a1628', color: '#fff',
       fontFamily: 'system-ui, sans-serif',
     }}>
-      {/* Header */}
+      {/* Header — full width */}
       <header style={{
         background: '#0f2040',
         borderBottom: '1px solid #1e3a5f',
@@ -204,7 +329,7 @@ export default function TvAsoPage() {
         </div>
       </header>
 
-      {/* Legenda */}
+      {/* Legenda — full width */}
       <div style={{
         background: '#0d1b35',
         borderBottom: '1px solid #1e3a5f',
@@ -230,98 +355,112 @@ export default function TvAsoPage() {
         })}
       </div>
 
-      {/* Table header */}
+      {/* Table header row — 62% left | 38% right */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: '40% 60%',
-        padding: '0.8vh 3vw',
+        display: 'flex',
         background: '#0d1b35',
         borderBottom: '1px solid #1e3a5f',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: '1vw', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Paciente</span>
-        <span style={{ fontSize: '1vw', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Salas</span>
+        <div style={{
+          width: '62%',
+          display: 'grid',
+          gridTemplateColumns: '40% 60%',
+          padding: '0.8vh 3vw',
+        }}>
+          <span style={{ fontSize: '1vw', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Paciente</span>
+          <span style={{ fontSize: '1vw', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Salas</span>
+        </div>
+        <div style={{ width: '38%', borderLeft: '1px solid #1e3a5f' }} />
       </div>
 
-      {/* Patient list */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '1vh 3vw' }}>
-        {visiblePacientes.length === 0 ? (
-          <div style={{
-            height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#334155', fontSize: '2vw', fontWeight: 700,
-          }}>
-            Nenhum paciente em espera
-          </div>
-        ) : (
-          visiblePacientes.map(paciente => {
-            const overallStatus = getOverallStatus(paciente);
-            const isEmAtendimento = overallStatus === 'EM_ATENDIMENTO';
-            const isConcluido = overallStatus === 'CONCLUIDO';
-            const salas = paciente.salas || [];
+      {/* Main content — flex row, fills remaining height */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* LEFT — 62% — patient list */}
+        <main style={{ width: '62%', overflowY: 'auto', padding: '1vh 3vw', borderRight: '1px solid #1e3a5f' }}>
+          {visiblePacientes.length === 0 ? (
+            <div style={{
+              height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#334155', fontSize: '2vw', fontWeight: 700,
+            }}>
+              Nenhum paciente em espera
+            </div>
+          ) : (
+            visiblePacientes.map(paciente => {
+              const overallStatus = getOverallStatus(paciente);
+              const isEmAtendimento = overallStatus === 'EM_ATENDIMENTO';
+              const isConcluido = overallStatus === 'CONCLUIDO';
+              const salas = paciente.salas || [];
 
-            return (
-              <div
-                key={paciente.id}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '40% 60%',
-                  padding: '1.5vh 1.5vw',
-                  marginBottom: '0.6vh',
-                  borderRadius: '1vw',
-                  background: isConcluido ? '#0f2b1f' : isEmAtendimento ? '#0d2b1a' : '#111f38',
-                  border: `1px solid ${isConcluido ? '#166534' : isEmAtendimento ? '#3d7a52' : '#1e3a5f'}`,
-                  alignItems: 'center',
-                  transition: 'all 0.3s ease',
-                  opacity: isConcluido ? 0.6 : 1,
-                }}
-              >
-                {/* Patient name */}
-                <div>
-                  <p style={{
-                    fontSize: '2.2vw',
-                    fontWeight: 900,
-                    color: isConcluido ? '#4ade80' : isEmAtendimento ? '#a7f3d0' : '#f1f5f9',
-                    textTransform: 'uppercase',
-                    lineHeight: 1.1,
-                    letterSpacing: '0.03em',
-                  }}>
-                    {paciente.paciente_nome}
-                  </p>
-                  {isEmAtendimento && (
-                    <span style={{
-                      display: 'inline-block', marginTop: '0.5vh',
-                      background: '#3d7a52', color: '#fff',
-                      fontSize: '0.8vw', fontWeight: 700,
-                      padding: '0.2vh 0.8vw', borderRadius: 999,
-                      textTransform: 'uppercase', letterSpacing: '0.1em',
+              return (
+                <div
+                  key={paciente.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '40% 60%',
+                    padding: '1.5vh 1.5vw',
+                    marginBottom: '0.6vh',
+                    borderRadius: '1vw',
+                    background: isConcluido ? '#0f2b1f' : isEmAtendimento ? '#0d2b1a' : '#111f38',
+                    border: `1px solid ${isConcluido ? '#166534' : isEmAtendimento ? '#3d7a52' : '#1e3a5f'}`,
+                    alignItems: 'center',
+                    transition: 'all 0.3s ease',
+                    opacity: isConcluido ? 0.6 : 1,
+                  }}
+                >
+                  {/* Patient name */}
+                  <div>
+                    <p style={{
+                      fontSize: '2.2vw',
+                      fontWeight: 900,
+                      color: isConcluido ? '#4ade80' : isEmAtendimento ? '#a7f3d0' : '#f1f5f9',
+                      textTransform: 'uppercase',
+                      lineHeight: 1.1,
+                      letterSpacing: '0.03em',
                     }}>
-                      Em Atendimento
-                    </span>
-                  )}
-                  {isConcluido && (
-                    <span style={{
-                      display: 'inline-block', marginTop: '0.5vh',
-                      background: '#166534', color: '#4ade80',
-                      fontSize: '0.8vw', fontWeight: 700,
-                      padding: '0.2vh 0.8vw', borderRadius: 999,
-                      textTransform: 'uppercase', letterSpacing: '0.1em',
-                    }}>
-                      Concluído
-                    </span>
-                  )}
-                </div>
+                      {paciente.paciente_nome}
+                    </p>
+                    {isEmAtendimento && (
+                      <span style={{
+                        display: 'inline-block', marginTop: '0.5vh',
+                        background: '#3d7a52', color: '#fff',
+                        fontSize: '0.8vw', fontWeight: 700,
+                        padding: '0.2vh 0.8vw', borderRadius: 999,
+                        textTransform: 'uppercase', letterSpacing: '0.1em',
+                      }}>
+                        Em Atendimento
+                      </span>
+                    )}
+                    {isConcluido && (
+                      <span style={{
+                        display: 'inline-block', marginTop: '0.5vh',
+                        background: '#166534', color: '#4ade80',
+                        fontSize: '0.8vw', fontWeight: 700,
+                        padding: '0.2vh 0.8vw', borderRadius: 999,
+                        textTransform: 'uppercase', letterSpacing: '0.1em',
+                      }}>
+                        Concluído
+                      </span>
+                    )}
+                  </div>
 
-                {/* Room squares */}
-                <div style={{ display: 'flex', gap: '1.5vw', flexWrap: 'wrap' }}>
-                  {salas.filter(s => s.sala_nome).map((s, i) => (
-                    <SalaSquare key={i} status={s.status} nome={s.sala_nome} />
-                  ))}
+                  {/* Room squares */}
+                  <div style={{ display: 'flex', gap: '1.5vw', flexWrap: 'wrap' }}>
+                    {salas.filter(s => s.sala_nome).map((s, i) => (
+                      <SalaSquare key={i} status={s.status} nome={s.sala_nome} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </main>
+              );
+            })
+          )}
+        </main>
+
+        {/* RIGHT — 38% — media carousel */}
+        <div style={{ width: '38%', background: '#060e1c', overflow: 'hidden', flexShrink: 0 }}>
+          <MediaCarousel apiUrl={API_URL} />
+        </div>
+      </div>
 
       {/* Call overlay */}
       {chamadaAtual && (
