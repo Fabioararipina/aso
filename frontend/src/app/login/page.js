@@ -2,24 +2,35 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { login, isAuthenticated } from '../../lib/auth';
+import { isAuthenticated, getUser } from '../../lib/auth';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/portal';
+  const redirectParam = searchParams.get('redirect');
 
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
 
-  // Se já está autenticado, redireciona
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  // Se já está autenticado, redireciona conforme perfil
   useEffect(() => {
     if (isAuthenticated()) {
-      router.replace(redirect);
+      const user = getUser();
+      const dest = redirectParam || getDefaultRoute(user?.perfil);
+      router.replace(dest);
     }
-  }, [redirect, router]);
+  }, [redirectParam, router]);
+
+  function getDefaultRoute(perfil) {
+    if (perfil === 'ADMIN') return '/admin/salas';
+    if (perfil === 'RECEPCAO') return '/recepcao/aso';
+    if (perfil === 'OPERADOR') return '/operador';
+    return '/recepcao/aso';
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -27,8 +38,19 @@ function LoginForm() {
     setCarregando(true);
 
     try {
-      await login(usuario, senha);
-      router.replace(redirect);
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Usuário ou senha inválidos.');
+
+      localStorage.setItem('auth_token', data.token);
+
+      const dest = redirectParam || getDefaultRoute(data.perfil);
+      router.replace(dest);
     } catch (err) {
       setErro(err.message);
     } finally {
@@ -44,7 +66,7 @@ function LoginForm() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#5b8dfd] to-[#4a7ecc] rounded-2xl mb-4 shadow-lg">
             <span className="text-2xl">🏥</span>
           </div>
-          <h1 className="text-2xl font-black text-gray-800">Essencial Saúde</h1>
+          <h1 className="text-2xl font-black text-gray-800">ASO Saúde</h1>
           <p className="text-gray-400 text-sm mt-1">Painel de Gestão</p>
         </div>
 

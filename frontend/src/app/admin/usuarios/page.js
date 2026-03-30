@@ -1,255 +1,242 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getToken } from '../../../lib/auth';
 
-const PERFIS = ['ADMIN', 'RECEPCAO', 'MEDICO'];
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+const PERFIS = ['ADMIN', 'RECEPCAO', 'OPERADOR'];
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState([]);
-  const [medicos, setMedicos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [salas, setSalas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
 
-  // Formulário novo usuário
-  const [nome, setNome] = useState('');
-  const [usuario, setUsuario] = useState('');
-  const [senha, setSenha] = useState('');
-  const [perfil, setPerfil] = useState('RECEPCAO');
-  const [medicoId, setMedicoId] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ nome: '', usuario: '', senha: '', perfil: 'RECEPCAO', sala_id: '' });
   const [salvando, setSalvando] = useState(false);
-  const [erroForm, setErroForm] = useState('');
-  const [sucessoForm, setSucessoForm] = useState('');
 
-  // Troca de senha
-  const [trocandoSenhaId, setTrocandoSenhaId] = useState(null);
-  const [novaSenha, setNovaSenha] = useState('');
+  const headers = { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-agendamento.primeatende.com.br';
-
-  useEffect(() => {
-    fetchUsuarios();
-    fetchMedicos();
-  }, []);
-
-  async function fetchUsuarios() {
+  async function carregar() {
+    setCarregando(true);
+    setErro('');
     try {
-      const res = await axios.get(`${API_URL}/auth/usuarios`);
-      setUsuarios(res.data.filter(u => u.perfil !== 'TV'));
-    } catch (err) {
-      console.error('Erro ao buscar usuários', err);
+      const [resU, resS] = await Promise.all([
+        fetch(`${API_URL}/api/auth/usuarios`, { headers }),
+        fetch(`${API_URL}/api/salas`, { headers }),
+      ]);
+      if (!resU.ok) throw new Error('Erro ao carregar usuários.');
+      setUsuarios(await resU.json());
+      if (resS.ok) setSalas(await resS.json());
+    } catch (e) {
+      setErro(e.message);
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   }
 
-  async function fetchMedicos() {
-    try {
-      const res = await axios.get(`${API_URL}/api/medicos`);
-      setMedicos(res.data);
-    } catch (err) {
-      console.error('Erro ao buscar médicos', err);
-    }
-  }
+  useEffect(() => { carregar(); }, []);
 
   async function handleCriar(e) {
     e.preventDefault();
-    setErroForm('');
-    setSucessoForm('');
     setSalvando(true);
+    setErro('');
+    setSucesso('');
     try {
-      await axios.post(`${API_URL}/auth/usuarios`, {
-        nome,
-        usuario,
-        senha,
-        perfil,
-        medico_id: perfil === 'MEDICO' && medicoId ? parseInt(medicoId) : null,
+      const body = { ...form, sala_id: form.sala_id || null };
+      const res = await fetch(`${API_URL}/api/auth/usuarios`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
       });
-      setSucessoForm(`Usuário "${usuario}" criado com sucesso!`);
-      setNome(''); setUsuario(''); setSenha(''); setPerfil('RECEPCAO'); setMedicoId('');
-      fetchUsuarios();
-    } catch (err) {
-      setErroForm(err.response?.data?.error || 'Erro ao criar usuário.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar usuário.');
+      setSucesso(`Usuário "${form.usuario}" criado com sucesso.`);
+      setForm({ nome: '', usuario: '', senha: '', perfil: 'RECEPCAO', sala_id: '' });
+      setShowForm(false);
+      carregar();
+    } catch (e) {
+      setErro(e.message);
     } finally {
       setSalvando(false);
     }
   }
 
-  async function handleTrocarSenha(id) {
-    if (!novaSenha || novaSenha.length < 6) {
-      alert('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
+  async function handleDesativar(id, nome) {
+    if (!confirm(`Desativar o usuário "${nome}"?`)) return;
+    setErro('');
+    setSucesso('');
     try {
-      await axios.put(`${API_URL}/auth/usuarios/${id}/senha`, { senha: novaSenha });
-      alert('Senha alterada com sucesso!');
-      setTrocandoSenhaId(null);
-      setNovaSenha('');
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao trocar senha.');
+      const res = await fetch(`${API_URL}/api/auth/usuarios/${id}`, { method: 'DELETE', headers });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erro ao desativar usuário.');
+      }
+      setSucesso(`Usuário "${nome}" desativado.`);
+      carregar();
+    } catch (e) {
+      setErro(e.message);
     }
   }
 
-  async function handleDesativar(id, nomeUsuario) {
-    if (!confirm(`Desativar o usuário "${nomeUsuario}"? Ele não conseguirá mais fazer login.`)) return;
-    try {
-      await axios.delete(`${API_URL}/auth/usuarios/${id}`);
-      fetchUsuarios();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao desativar usuário.');
-    }
+  function nomeSala(sala_id) {
+    if (!sala_id) return '—';
+    const s = salas.find(s => s.id === sala_id);
+    return s ? s.nome : sala_id;
   }
-
-  const perfilBadge = (p) => {
-    if (p === 'ADMIN') return 'bg-red-100 text-red-700';
-    if (p === 'RECEPCAO') return 'bg-blue-100 text-blue-700';
-    if (p === 'MEDICO') return 'bg-green-100 text-green-700';
-    return 'bg-gray-100 text-gray-600';
-  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <h1 className="text-3xl font-bold text-gray-800">Usuários do Sistema</h1>
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-gray-800">Usuários do Sistema</h1>
+          <p className="text-gray-500 text-sm mt-1">Gerencie os acessos ao ASO Saúde</p>
+        </div>
+        <button
+          onClick={() => { setShowForm(!showForm); setErro(''); setSucesso(''); }}
+          className="bg-[#5b8dfd] hover:bg-[#4a7ecc] text-white font-bold px-5 py-2.5 rounded-xl shadow transition"
+        >
+          {showForm ? 'Cancelar' : '+ Novo Usuário'}
+        </button>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      {/* Feedback */}
+      {erro && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm">{erro}</div>
+      )}
+      {sucesso && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm">{sucesso}</div>
+      )}
 
-        {/* FORMULÁRIO */}
-        <div className="bg-white rounded-xl shadow p-6 h-fit">
-          <h2 className="text-xl font-bold text-gray-700 mb-4">Novo Usuário</h2>
-          <form onSubmit={handleCriar} className="space-y-4">
-
+      {/* Formulário de criação */}
+      {showForm && (
+        <form onSubmit={handleCriar} className="bg-white rounded-2xl shadow p-6 mb-6 border border-gray-100">
+          <h2 className="text-lg font-bold text-gray-700 mb-4">Novo Usuário</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1">Nome completo</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Nome completo</label>
               <input
-                required value={nome} onChange={e => setNome(e.target.value)}
-                placeholder="Ex: Maria da Silva"
-                className="w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                type="text"
+                required
+                value={form.nome}
+                onChange={e => setForm({ ...form, nome: e.target.value })}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                placeholder="Ex: João da Silva"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1">Login (usuário)</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Login (usuário)</label>
               <input
-                required value={usuario} onChange={e => setUsuario(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                placeholder="Ex: maria.silva"
-                className="w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                type="text"
+                required
+                value={form.usuario}
+                onChange={e => setForm({ ...form, usuario: e.target.value })}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                placeholder="Ex: joao.silva"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1">Senha inicial</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Senha</label>
               <input
-                required type="password" value={senha} onChange={e => setSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                minLength={6}
-                className="w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                type="password"
+                required
+                minLength={4}
+                value={form.senha}
+                onChange={e => setForm({ ...form, senha: e.target.value })}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+                placeholder="Mínimo 4 caracteres"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-gray-600 mb-1">Perfil</label>
-              <div className="flex gap-2">
-                {PERFIS.map(p => (
-                  <button
-                    key={p} type="button" onClick={() => setPerfil(p)}
-                    className={`flex-1 py-2 rounded-lg font-semibold text-sm transition ${perfil === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                  >
-                    {p === 'ADMIN' ? 'Admin' : p === 'RECEPCAO' ? 'Recepção' : 'Médico'}
-                  </button>
-                ))}
-              </div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Perfil</label>
+              <select
+                value={form.perfil}
+                onChange={e => setForm({ ...form, perfil: e.target.value })}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+              >
+                {PERFIS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
             </div>
-
-            {perfil === 'MEDICO' && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1">Médico vinculado</label>
-                <select
-                  value={medicoId} onChange={e => setMedicoId(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">— Selecione o médico —</option>
-                  {medicos.map(m => (
-                    <option key={m.id} value={m.id}>{m.nome} — {m.especialidade}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">Opcional: vincula o login ao painel do médico correspondente.</p>
-              </div>
-            )}
-
-            {erroForm && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erroForm}</p>}
-            {sucessoForm && <p className="text-green-600 text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2">{sucessoForm}</p>}
-
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Sala associada (opcional)</label>
+              <select
+                value={form.sala_id}
+                onChange={e => setForm({ ...form, sala_id: e.target.value })}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#5b8dfd]"
+              >
+                <option value="">Nenhuma</option>
+                {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end">
             <button
-              type="submit" disabled={salvando}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-60"
+              type="submit"
+              disabled={salvando}
+              className="bg-[#5b8dfd] hover:bg-[#4a7ecc] disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl shadow transition"
             >
-              {salvando ? 'Criando...' : 'Criar usuário'}
+              {salvando ? 'Salvando...' : 'Criar Usuário'}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
+      )}
 
-        {/* LISTA */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-bold text-gray-700 mb-4">Usuários cadastrados</h2>
-
-          {loading ? (
-            <p className="text-gray-400 text-sm">Carregando...</p>
-          ) : usuarios.length === 0 ? (
-            <p className="text-gray-400 text-sm">Nenhum usuário cadastrado.</p>
-          ) : (
-            <ul className="space-y-3">
-              {usuarios.map(u => (
-                <li key={u.id} className={`border rounded-xl p-4 ${!u.ativo ? 'opacity-50' : ''}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-bold text-gray-800">{u.nome}</p>
-                      <p className="text-sm text-gray-500">@{u.usuario}</p>
-                      <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${perfilBadge(u.perfil)}`}>
-                        {u.perfil === 'RECEPCAO' ? 'Recepção' : u.perfil}
-                      </span>
-                      {!u.ativo && <span className="ml-2 text-xs text-red-400 font-semibold">Desativado</span>}
-                    </div>
-
-                    {u.ativo && (
-                      <div className="flex flex-col gap-1 text-right">
-                        <button
-                          onClick={() => { setTrocandoSenhaId(trocandoSenhaId === u.id ? null : u.id); setNovaSenha(''); }}
-                          className="text-blue-500 text-xs font-semibold hover:underline"
-                        >
-                          Trocar senha
-                        </button>
-                        <button
-                          onClick={() => handleDesativar(u.id, u.usuario)}
-                          className="text-red-400 text-xs font-semibold hover:underline"
-                        >
-                          Desativar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {trocandoSenhaId === u.id && (
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        type="password"
-                        value={novaSenha}
-                        onChange={e => setNovaSenha(e.target.value)}
-                        placeholder="Nova senha (mín. 6 chars)"
-                        className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      />
+      {/* Tabela de usuários */}
+      <div className="bg-white rounded-2xl shadow overflow-hidden border border-gray-100">
+        {carregando ? (
+          <div className="p-10 text-center text-gray-400">Carregando...</div>
+        ) : usuarios.length === 0 ? (
+          <div className="p-10 text-center text-gray-400">Nenhum usuário encontrado.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                <th className="px-5 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wider">Nome</th>
+                <th className="px-5 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wider">Usuário</th>
+                <th className="px-5 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wider">Perfil</th>
+                <th className="px-5 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wider">Sala</th>
+                <th className="px-5 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wider">Status</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {usuarios.map((u, i) => (
+                <tr key={u.id} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                  <td className="px-5 py-3 font-medium text-gray-800">{u.nome}</td>
+                  <td className="px-5 py-3 text-gray-600 font-mono">{u.usuario}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full
+                      ${u.perfil === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                        u.perfil === 'RECEPCAO' ? 'bg-blue-100 text-blue-700' :
+                        'bg-green-100 text-green-700'}`}>
+                      {u.perfil}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-gray-500">{nomeSala(u.sala_id)}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full
+                      ${u.ativo !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                      {u.ativo !== false ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {u.ativo !== false && (
                       <button
-                        onClick={() => handleTrocarSenha(u.id)}
-                        className="bg-blue-600 text-white text-sm font-bold px-3 py-1.5 rounded-lg"
+                        onClick={() => handleDesativar(u.id, u.nome)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium transition"
                       >
-                        Salvar
+                        Desativar
                       </button>
-                    </div>
-                  )}
-                </li>
+                    )}
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
-        </div>
-
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

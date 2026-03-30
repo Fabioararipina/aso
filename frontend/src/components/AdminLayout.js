@@ -15,38 +15,28 @@ export default function AdminLayout({ children }) {
   }
 
   const menuItems = [
-    { name: 'Portal Início', path: '/portal', icon: '🏠' },
-    { name: 'Recepção (Agenda)', path: '/recepcao/calendario', icon: '📅' },
-    { name: 'Lista de Pendentes', path: '/recepcao', icon: '📝' },
-    { name: 'Painel Médico', path: '/medico', icon: '👨‍⚕️' },
-    { name: 'TV Espera', path: '/tv', icon: '📺' },
-    { name: 'Equipe Médica', path: '/admin/medicos', icon: '📋' },
-    { name: 'Admin Horários', path: '/admin/horarios', icon: '⏰' },
-        {name: 'Configurar TV', path: '/admin/tv', icon: '🖥️' },
-        { name: 'Relatórios e Métricas', path: '/admin/metricas', icon: '📊' },
-    { name: 'Usuários do Sistema', path: '/admin/usuarios', icon: '👥' },
-        { name: 'Admin WhatsApp', path: '/admin', icon: '💬' },
-      ];
-
-  // Não exibe layout na TV ou login (futuro)
-  if (pathname === '/tv') return children;
+    { name: 'Recepção', path: '/recepcao/aso', icon: '🏥' },
+    { name: 'Salas', path: '/admin/salas', icon: '🚪' },
+    { name: 'Usuários', path: '/admin/usuarios', icon: '👥' },
+    { name: 'TV Painel', path: '/tv/aso', icon: '📺' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row">
-      
-      {/* SIDEBAR MOBILE / DESKTOP */}
+
+      {/* SIDEBAR */}
       <aside className="bg-gradient-to-b from-[#5b8dfd] to-[#4a7ecc] text-white w-full md:w-64 flex-shrink-0 shadow-xl">
         <div className="p-6 border-b border-white/10">
-          <h1 className="text-2xl font-black tracking-tight">Essencial Saúde</h1>
-          <p className="text-blue-100 text-xs font-medium opacity-80">Sistema de Gestão Inteligente</p>
+          <h1 className="text-2xl font-black tracking-tight">ASO Saúde</h1>
+          <p className="text-blue-100 text-xs font-medium opacity-80">Gestão de Fila</p>
         </div>
-        
+
         <nav className="p-4 space-y-2">
           {menuItems.map((item) => {
-            const isActive = pathname === item.path;
+            const isActive = pathname === item.path || pathname?.startsWith(item.path + '/');
             return (
-              <Link 
-                key={item.path} 
+              <Link
+                key={item.path}
                 href={item.path}
                 className={`flex items-center space-x-3 p-3 rounded-xl transition duration-200 group
                   ${isActive ? 'bg-white text-[#5b8dfd] shadow-lg font-bold' : 'text-blue-50 hover:bg-white/10 hover:text-white'}
@@ -60,7 +50,6 @@ export default function AdminLayout({ children }) {
         </nav>
 
         <div className="p-4 mt-auto border-t border-white/10 space-y-3">
-          {/* Usuário logado */}
           {user && (
             <div className="px-1">
               <p className="text-blue-100 text-xs font-medium opacity-70">Logado como</p>
@@ -70,11 +59,6 @@ export default function AdminLayout({ children }) {
               </span>
             </div>
           )}
-
-          <Link href="/" className="flex items-center space-x-2 text-blue-100 hover:text-white text-sm font-medium transition">
-            <span>⬅</span>
-            <span>Voltar ao Site Público</span>
-          </Link>
 
           <button
             onClick={handleLogout}
