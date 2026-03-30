@@ -1,0 +1,7 @@
+# Adicione este bloco dentro do server de api-agendamento.primeatende.com.br
+# no seu arquivo /etc/nginx/sites-available/essencialsaude
+
+    location /uploads/ {
+        alias /var/www/essencialsaude/backend/uploads/;
+        try_files $uri $uri/ =404;
+    }

@@ -1,0 +1,93 @@
+# =================================================================
+# Arquivo de Configuração Nginx Completo e Corrigido
+#
+# Instruções:
+# 1. Copie TODO o conteúdo deste arquivo.
+# 2. No seu servidor, apague todo o conteúdo do arquivo /etc/nginx/sites-available/essencialsaude
+# 3. Cole este conteúdo no lugar.
+# 4. Salve o arquivo e execute: nginx -t && systemctl reload nginx
+# =================================================================
+
+server {
+    server_name api-agendamento.primeatende.com.br;
+    client_max_body_size 100M; # Aumenta o limite de upload para vídeos, etc.
+
+    # Bloco para servir arquivos de upload (fotos, etc) diretamente, de forma eficiente.
+    location /uploads/ {
+        alias /var/www/essencialsaude/backend/uploads/;
+        try_files $uri $uri/ =404;
+    }
+
+    # Bloco para o resto da API (Node.js)
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/api-agendamento.primeatende.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/api-agendamento.primeatende.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    server_name portal.primeatende.com.br;
+    client_max_body_size 100M; # Aumenta o limite de upload para vídeos, etc.
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Redireciona a API para o backend (usado pelo frontend)
+    location /api/ {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+    }
+
+    # Redireciona o Socket.IO para o backend (usado pelo frontend)
+    location /socket.io/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/api-agendamento.primeatende.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/api-agendamento.primeatende.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# --- Blocos de Redirecionamento HTTP para HTTPS ---
+
+server {
+    if ($host = api-agendamento.primeatende.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    server_name api-agendamento.primeatende.com.br;
+    listen 80;
+    return 404; # managed by Certbot
+}
+
+server {
+    if ($host = portal.primeatende.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    server_name portal.primeatende.com.br;
+    listen 80;
+    return 404; # managed by Certbot
+}

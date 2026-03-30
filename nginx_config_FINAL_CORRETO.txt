@@ -1,0 +1,90 @@
+# =================================================================
+# Arquivo de Configuração Nginx FINAL E CORRETO (2026-01-16)
+#
+# A correção foi MOVER o bloco 'location /uploads/' para o 'server' do PORTAL.
+# =================================================================
+
+server {
+    server_name api-agendamento.primeatende.com.br;
+    client_max_body_size 100M;
+
+    # A API não serve mais os uploads diretamente, o portal vai fazer isso.
+    # O proxy para o Node.js é suficiente.
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/api-agendamento.primeatende.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/api-agendamento.primeatende.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    server_name portal.primeatende.com.br;
+    client_max_body_size 100M;
+
+    # CORREÇÃO DEFINITIVA:
+    # Este bloco diz ao Nginx para pegar qualquer requisição para /uploads
+    # e servir os arquivos diretamente do diretório do backend.
+    location /uploads/ {
+        alias /var/www/essencialsaude/backend/uploads/;
+        try_files $uri $uri/ =404;
+    }
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/api-agendamento.primeatende.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/api-agendamento.primeatende.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# --- Blocos de Redirecionamento HTTP para HTTPS ---
+
+server {
+    if ($host = api-agendamento.primeatende.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    server_name api-agendamento.primeatende.com.br;
+    listen 80;
+    return 404; # managed by Certbot
+}
+
+server {
+    if ($host = portal.primeatende.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    server_name portal.primeatende.com.br;
+    listen 80;
+    return 404; # managed by Certbot
+}

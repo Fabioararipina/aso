@@ -1,0 +1,6 @@
+{
+  "watch": ["src/"],
+  "ext": "js,json",
+  "ignore": ["src/tests/", "*.test.js", "node_modules/", ".wwebjs_auth/"],
+  "exec": "node -r dotenv/config src/app.js"
+}
