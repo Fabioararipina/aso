@@ -11,6 +11,7 @@ const STATUS_COLORS = {
   PENDENTE:       { bg: '#fbbf24', border: '#d97706', label: 'Aguardando' },
   EM_ATENDIMENTO: { bg: '#3b82f6', border: '#1d4ed8', label: 'Em Atend.' },
   CONCLUIDO_SALA: { bg: '#22c55e', border: '#15803d', label: 'Concluído' },
+  HIBERNADO:      { bg: '#7c3aed', border: '#4c1d95', label: 'Hibernado'  },
 };
 
 function SalaSquare({ status, nome }) {
@@ -102,6 +103,17 @@ export default function OperadorPage() {
     } catch { alert('Erro ao atualizar exame'); }
   }
 
+  async function handleAusente(id) {
+    setActionLoading(`ausente-${id}`);
+    try {
+      await axios.post(`${API_URL}/api/fila/${id}/ausente`, {}, { headers: authHeader() });
+      await fetchFila();
+      if (showOperacao) fetchOperacao();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao marcar ausente');
+    } finally { setActionLoading(null); }
+  }
+
   async function handleChamar(fila_id) {
     setActionLoading(`chamar-${fila_id}`);
     try {
@@ -145,6 +157,7 @@ export default function OperadorPage() {
   const fila = info?.fila || [];
   const emAtendimento = fila.filter(f => f.status === 'EM_ATENDIMENTO');
   const pendentes     = fila.filter(f => f.status === 'PENDENTE');
+  const hibernados    = fila.filter(f => f.status === 'HIBERNADO');
 
   const ocupacaoPorSala = {};
   todosAtendimentos.forEach(at => {
@@ -184,6 +197,7 @@ export default function OperadorPage() {
               {emAtendimento.map(item => (
                 <PatientCard key={item.id} item={item}
                   onConcluir={() => handleConcluir(item.id)}
+                  onAusente={() => handleAusente(item.id)}
                   onExames={() => openExamesModal(item.id, item.paciente_nome, 'EM_ATENDIMENTO')}
                   actionLoading={actionLoading} />
               ))}
@@ -208,6 +222,21 @@ export default function OperadorPage() {
             </div>
           )}
         </div>
+
+        {hibernados.length > 0 && (
+          <div className="mt-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#a78bfa' }}>
+              😴 Hibernados — Aguardando Recepção ({hibernados.length})
+            </h2>
+            <div className="space-y-1.5">
+              {hibernados.map(item => (
+                <PatientCard key={item.id} item={item}
+                  onExames={() => openExamesModal(item.id, item.paciente_nome, 'PENDENTE')}
+                  actionLoading={actionLoading} />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ── Modal de Exames ── */}
@@ -425,11 +454,13 @@ export default function OperadorPage() {
   );
 }
 
-function PatientCard({ item, position, onChamar, onConcluir, onExames, actionLoading }) {
+function PatientCard({ item, position, onChamar, onConcluir, onAusente, onExames, actionLoading }) {
   const isCalling    = actionLoading === `chamar-${item.id}`;
   const isConcluding = actionLoading === `concluir-${item.id}`;
+  const isAbsenting  = actionLoading === `ausente-${item.id}`;
   const isPendente   = item.status === 'PENDENTE';
   const isEmAtend    = item.status === 'EM_ATENDIMENTO';
+  const isHibernado  = item.status === 'HIBERNADO';
   const todasSalas   = item.todas_salas || [];
   const examesCount  = item.exames_count || 0;
 
@@ -438,10 +469,11 @@ function PatientCard({ item, position, onChamar, onConcluir, onExames, actionLoa
 
   return (
     <div style={{
-      background: isEmAtend ? '#0d2b1a' : '#1f2937',
-      border: `1px solid ${isEmAtend ? '#3d7a52' : '#374151'}`,
+      background: isEmAtend ? '#0d2b1a' : isHibernado ? '#1a1030' : '#1f2937',
+      border: `1px solid ${isEmAtend ? '#3d7a52' : isHibernado ? '#5b21b6' : '#374151'}`,
       borderRadius: 10, padding: '8px 12px',
       display: 'flex', alignItems: 'center', gap: 10,
+      opacity: isHibernado ? 0.75 : 1,
     }}>
       {position && (
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, flexShrink: 0 }}>
@@ -451,6 +483,11 @@ function PatientCard({ item, position, onChamar, onConcluir, onExames, actionLoa
       {isEmAtend && (
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#3d7a52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
           ▶
+        </div>
+      )}
+      {isHibernado && (
+        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#5b21b6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+          😴
         </div>
       )}
 
@@ -472,7 +509,7 @@ function PatientCard({ item, position, onChamar, onConcluir, onExames, actionLoa
         </div>
       </div>
 
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
         {isPendente && (
           bloqueadoPorAdm ? (
             <span title="Aguardando liberação da sala administrativa"
@@ -492,10 +529,21 @@ function PatientCard({ item, position, onChamar, onConcluir, onExames, actionLoa
           )
         )}
         {isEmAtend && (
-          <button onClick={onConcluir} disabled={isConcluding}
-            style={{ background: isConcluding ? '#374151' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: isConcluding ? 'not-allowed' : 'pointer', minWidth: 80 }}>
-            {isConcluding ? '...' : 'Concluído'}
-          </button>
+          <>
+            <button onClick={onConcluir} disabled={isConcluding || isAbsenting}
+              style={{ background: isConcluding ? '#374151' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: (isConcluding || isAbsenting) ? 'not-allowed' : 'pointer', minWidth: 80 }}>
+              {isConcluding ? '...' : 'Concluído'}
+            </button>
+            <button onClick={onAusente} disabled={isAbsenting || isConcluding}
+              style={{ background: isAbsenting ? '#374151' : '#78350f', color: '#fde68a', fontWeight: 700, fontSize: 12, padding: '5px 12px', borderRadius: 8, border: '1px solid #92400e', cursor: (isAbsenting || isConcluding) ? 'not-allowed' : 'pointer', minWidth: 80, whiteSpace: 'nowrap' }}>
+              {isAbsenting ? '...' : '😴 Ausente'}
+            </button>
+          </>
+        )}
+        {isHibernado && (
+          <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, background: '#1e1040', border: '1px solid #5b21b6', borderRadius: 8, padding: '6px 10px', whiteSpace: 'nowrap' }}>
+            Aguard. Recepção
+          </span>
         )}
       </div>
     </div>

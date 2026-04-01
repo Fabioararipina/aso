@@ -53,6 +53,8 @@ router.patch('/atendimentos/:id/cancelar', auth, AtendimentoController.cancelar)
 router.get('/fila/:sala_slug', auth, FilaController.listarPorSala);
 router.post('/fila/:sala_slug/chamar', auth, FilaController.chamar);
 router.post('/fila/:id/concluir', auth, FilaController.concluir);
+router.post('/fila/:id/ausente', auth, FilaController.marcarAusente);
+router.post('/fila/:id/reativar', auth, FilaController.reativarPaciente);
 router.post('/fila/:sala_slug/atraso', auth, FilaController.registrarAtraso);
 
 // Salas — CRUD completo
@@ -365,6 +367,10 @@ router.get('/whatsapp/log', auth, async (req, res) => {
     await pool.query("ALTER TABLE tv_midias ADD COLUMN IF NOT EXISTS conteudo TEXT");
     await pool.query("ALTER TABLE fila_salas ADD COLUMN IF NOT EXISTS ultima_contagem_enviada INT DEFAULT NULL");
     await pool.query("ALTER TABLE salas ADD COLUMN IF NOT EXISTS administrativa BOOLEAN DEFAULT false");
+    // v5: ausência/hibernação
+    await pool.query("ALTER TABLE fila_salas DROP CONSTRAINT IF EXISTS fila_salas_status_check");
+    await pool.query("ALTER TABLE fila_salas ADD CONSTRAINT fila_salas_status_check CHECK (status IN ('PENDENTE','EM_ATENDIMENTO','CONCLUIDO_SALA','HIBERNADO'))");
+    await pool.query("ALTER TABLE fila_salas ADD COLUMN IF NOT EXISTS tentativas_ausencia INTEGER DEFAULT 0");
   } catch (_) {}
 })();
 

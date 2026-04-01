@@ -22,7 +22,7 @@ exports.listarPorSala = async (req, res) => {
       JOIN pacientes p ON p.id = a.paciente_id
       LEFT JOIN fila_salas fs2 ON fs2.atendimento_id = a.id
       LEFT JOIN salas s2 ON s2.id = fs2.sala_id
-      WHERE fs.sala_id=$1 AND fs.status IN ('PENDENTE','EM_ATENDIMENTO') AND a.status != 'CANCELADO'
+      WHERE fs.sala_id=$1 AND fs.status IN ('PENDENTE','EM_ATENDIMENTO','HIBERNADO') AND a.status != 'CANCELADO'
       GROUP BY fs.id, a.id, p.nome
       ORDER BY fs.posicao ASC
     `, [sala.id]);
@@ -189,6 +189,92 @@ exports.registrarAtraso = async (req, res) => {
     if (io) io.emit('fila:atualizada', { sala_slug });
 
     res.json({ success: true, notificados: fila.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.marcarAusente = async (req, res) => {
+  const { id } = req.params; // fila_sala id
+  try {
+    const { rows: [filaItem] } = await pool.query('SELECT * FROM fila_salas WHERE id=$1', [id]);
+    if (!filaItem) return res.status(404).json({ error: 'Item não encontrado' });
+    if (filaItem.status !== 'EM_ATENDIMENTO') return res.status(400).json({ error: 'Paciente não está em atendimento' });
+
+    const novasTentativas = (filaItem.tentativas_ausencia || 0) + 1;
+
+    if (novasTentativas >= 2) {
+      // 2ª ausência → hiberna
+      await pool.query(
+        "UPDATE fila_salas SET status='HIBERNADO', tentativas_ausencia=$1 WHERE id=$2",
+        [novasTentativas, id]
+      );
+    } else {
+      // 1ª ausência → volta para o fim da fila como PENDENTE
+      const { rows: [{ max_pos }] } = await pool.query(
+        "SELECT COALESCE(MAX(posicao), 0) as max_pos FROM fila_salas WHERE sala_id=$1 AND status IN ('PENDENTE','EM_ATENDIMENTO')",
+        [filaItem.sala_id]
+      );
+      await pool.query(
+        "UPDATE fila_salas SET status='PENDENTE', posicao=$1, tentativas_ausencia=$2, chamado_em=NULL WHERE id=$3",
+        [max_pos + 1, novasTentativas, id]
+      );
+    }
+
+    // Se nenhuma outra fila_sala deste atendimento está EM_ATENDIMENTO,
+    // volta o atendimento para PRESENTE
+    const { rows: emAtend } = await pool.query(
+      "SELECT 1 FROM fila_salas WHERE atendimento_id=$1 AND status='EM_ATENDIMENTO' AND id != $2 LIMIT 1",
+      [filaItem.atendimento_id, id]
+    );
+    if (emAtend.length === 0) {
+      await pool.query(
+        "UPDATE atendimentos SET status='PRESENTE', atualizado_em=NOW() WHERE id=$1 AND status='EM_ATENDIMENTO'",
+        [filaItem.atendimento_id]
+      );
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('fila:atualizada', {});
+      io.emit('tv:atualizar');
+    }
+    res.json({ success: true, hibernado: novasTentativas >= 2 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.reativarPaciente = async (req, res) => {
+  const { id } = req.params; // fila_sala id
+  try {
+    const { rows: [filaItem] } = await pool.query('SELECT * FROM fila_salas WHERE id=$1', [id]);
+    if (!filaItem) return res.status(404).json({ error: 'Item não encontrado' });
+    if (filaItem.status !== 'HIBERNADO') return res.status(400).json({ error: 'Paciente não está hibernado' });
+
+    // Recoloca no fim da fila ativa
+    const { rows: [{ max_pos }] } = await pool.query(
+      "SELECT COALESCE(MAX(posicao), 0) as max_pos FROM fila_salas WHERE sala_id=$1 AND status IN ('PENDENTE','EM_ATENDIMENTO')",
+      [filaItem.sala_id]
+    );
+
+    await pool.query(
+      "UPDATE fila_salas SET status='PENDENTE', posicao=$1, tentativas_ausencia=0, chamado_em=NULL WHERE id=$2",
+      [max_pos + 1, id]
+    );
+
+    // Garante que o atendimento não está concluído (caso raro)
+    await pool.query(
+      "UPDATE atendimentos SET status='PRESENTE', atualizado_em=NOW() WHERE id=$1 AND status='CONCLUIDO'",
+      [filaItem.atendimento_id]
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('fila:atualizada', {});
+      io.emit('tv:atualizar');
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

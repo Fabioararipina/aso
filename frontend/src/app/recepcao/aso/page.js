@@ -23,6 +23,7 @@ const SALA_STATUS_COLOR = {
   PENDENTE:       '#fbbf24',
   EM_ATENDIMENTO: '#3b82f6',
   CONCLUIDO_SALA: '#22c55e',
+  HIBERNADO:      '#7c3aed',
 };
 
 export default function RecepcaoAsoPage() {
@@ -160,6 +161,16 @@ export default function RecepcaoAsoPage() {
     setNome(''); setWhatsapp(''); setSalasSelecionadas([]); setExamesSelecionados({});
     setEmpresa(''); setFuncao(''); setCnpj(''); setMostrarOpcionais(false);
     setError(''); setSuccess(false);
+  }
+
+  async function handleReativar(filaSalaId) {
+    setAcaoLoading(`reativar-${filaSalaId}`);
+    try {
+      await axios.post(`${API_URL}/api/fila/${filaSalaId}/reativar`, {}, { headers: authHeaders() });
+      fetchPacientes();
+    } catch (err) {
+      alert('Erro ao reativar: ' + (err.response?.data?.error || err.message));
+    } finally { setAcaoLoading(''); }
   }
 
   async function handleCancelar(atendimentoId) {
@@ -444,11 +455,23 @@ export default function RecepcaoAsoPage() {
                         {p.salas && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {p.salas.filter(s => s.sala_nome).map((s, i) => (
-                              <span key={i}
-                                style={{ background: SALA_STATUS_COLOR[s.status] + '33', color: SALA_STATUS_COLOR[s.status], border: `1px solid ${SALA_STATUS_COLOR[s.status]}66` }}
-                                className="text-xs font-semibold px-2 py-0.5 rounded">
-                                {s.sala_nome}
-                              </span>
+                              s.status === 'HIBERNADO' ? (
+                                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ede9fe', color: '#5b21b6', border: '1px solid #c4b5fd' }} className="text-xs font-semibold px-2 py-0.5 rounded">
+                                  😴 {s.sala_nome}
+                                  <button
+                                    onClick={() => handleReativar(s.id)}
+                                    disabled={acaoLoading === `reativar-${s.id}`}
+                                    style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 700, cursor: acaoLoading === `reativar-${s.id}` ? 'not-allowed' : 'pointer', marginLeft: 2 }}>
+                                    {acaoLoading === `reativar-${s.id}` ? '...' : 'Reativar'}
+                                  </button>
+                                </span>
+                              ) : (
+                                <span key={i}
+                                  style={{ background: SALA_STATUS_COLOR[s.status] + '33', color: SALA_STATUS_COLOR[s.status], border: `1px solid ${SALA_STATUS_COLOR[s.status]}66` }}
+                                  className="text-xs font-semibold px-2 py-0.5 rounded">
+                                  {s.sala_nome}
+                                </span>
+                              )
                             ))}
                           </div>
                         )}
