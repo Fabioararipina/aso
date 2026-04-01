@@ -16,10 +16,13 @@ export default function AdminLayout({ children }) {
 
   const menuItems = [
     { name: 'Recepção', path: '/recepcao/aso', icon: '🏥' },
+    { name: 'Operadores', path: '/operador', icon: '🖥️' },
     { name: 'Salas', path: '/admin/salas', icon: '🚪' },
     { name: 'Usuários', path: '/admin/usuarios', icon: '👥' },
+    { name: 'WhatsApp', path: '/admin/whatsapp', icon: '📱' },
     { name: 'TV Config', path: '/admin/tv', icon: '⚙️' },
     { name: 'TV Painel', path: '/tv/aso', icon: '📺' },
+    { name: 'Performance', path: '/admin/metricas', icon: '📊' },
   ];
 
   return (

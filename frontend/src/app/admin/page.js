@@ -187,6 +187,12 @@ export default function AdminPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Administração do Sistema</h1>
             <p className="text-gray-600">Gerencie a conexão do WhatsApp e configurações.</p>
+            <a
+              href="/admin/metricas"
+              className="inline-flex items-center gap-2 mt-3 bg-[#3d7a52] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#2d5c3e] transition"
+            >
+              📊 Painel de Performance
+            </a>
           </div>
           <div className={`px-4 py-2 rounded-full font-bold text-white ${
             status === 'conectado' ? 'bg-green-500' : 

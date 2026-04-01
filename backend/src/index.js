@@ -120,6 +120,33 @@ server.listen(PORT, () => {
   console.log(`[ASO] Servidor na porta ${PORT}`);
 });
 
+// ── Follow-up cron — roda todo dia às 09:00 ──────────────────────────
+const cron = require('node-cron');
+const pool_cron = require('./config/database');
+cron.schedule('0 9 * * *', async () => {
+  console.log('[Cron] Verificando follow-ups...');
+  try {
+    const { rows } = await pool_cron.query(`
+      SELECT a.id, p.nome, p.whatsapp, p.id as paciente_id
+      FROM atendimentos a
+      JOIN pacientes p ON p.id = a.paciente_id
+      WHERE a.status = 'CONCLUIDO'
+        AND a.criado_em::date = (CURRENT_DATE - INTERVAL '15 days')::date
+        AND NOT EXISTS (
+          SELECT 1 FROM wa_mensagens_log wl
+          WHERE wl.paciente_id = p.id AND wl.tipo = 'FOLLOWUP'
+            AND wl.enviado_em::date = CURRENT_DATE
+        )
+    `);
+    console.log(`[Cron] ${rows.length} follow-up(s) a enviar.`);
+    for (const row of rows) {
+      await whatsappService.enviarFollowup({ nome: row.nome, whatsapp: row.whatsapp, id: row.paciente_id });
+    }
+  } catch (err) {
+    console.error('[Cron] Erro no follow-up:', err.message);
+  }
+});
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('[ASO] Servidor sendo desligado...');

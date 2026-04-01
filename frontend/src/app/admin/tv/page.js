@@ -5,31 +5,44 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+const RSS_FEEDS = [
+  { label: 'G1 — Notícias', url: 'https://g1.globo.com/rss/g1/' },
+  { label: 'G1 — Saúde', url: 'https://g1.globo.com/rss/g1/ciencia-e-saude/' },
+  { label: 'G1 — Brasil', url: 'https://g1.globo.com/rss/g1/brasil/' },
+  { label: 'UOL Notícias', url: 'https://rss.uol.com.br/feed/noticias.xml' },
+  { label: 'UOL Saúde', url: 'https://rss.uol.com.br/feed/saude.xml' },
+  { label: 'Folha de S.Paulo — Saúde', url: 'https://feeds.folha.uol.com.br/equilibrioesaude/rss091.xml' },
+  { label: 'BBC Brasil', url: 'https://feeds.bbci.co.uk/portuguese/rss.xml' },
+  { label: 'CNN Brasil', url: 'https://www.cnnbrasil.com.br/feed/' },
+  { label: 'Metrópoles', url: 'https://www.metropoles.com/feed' },
+  { label: '— URL personalizada —', url: '' },
+];
+
 function getToken() {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('aso_token');
+  return localStorage.getItem('auth_token');
 }
 
 function authHeaders() {
   return { headers: { Authorization: `Bearer ${getToken()}` } };
 }
 
+const TYPE_BADGE = {
+  VIDEO:   { bg: '#1e3a5f', color: '#60a5fa', border: '#3b82f6', label: '🎬 Vídeo' },
+  IMAGEM:  { bg: '#1a3a28', color: '#4ade80', border: '#3d7a52', label: '🖼 Imagem' },
+  TEMPO:   { bg: '#1c2a4a', color: '#93c5fd', border: '#3b82f6', label: '🌤 Tempo' },
+  NOTICIA: { bg: '#3a1a1a', color: '#fca5a5', border: '#dc2626', label: '📰 Notícia' },
+};
+
 function TypeBadge({ tipo }) {
-  const isVideo = tipo === 'VIDEO';
+  const t = TYPE_BADGE[tipo] || TYPE_BADGE.IMAGEM;
   return (
     <span style={{
-      display: 'inline-block',
-      padding: '2px 10px',
-      borderRadius: 999,
-      fontSize: 11,
-      fontWeight: 700,
-      letterSpacing: '0.05em',
-      textTransform: 'uppercase',
-      background: isVideo ? '#1e3a5f' : '#1a3a28',
-      color: isVideo ? '#60a5fa' : '#4ade80',
-      border: `1px solid ${isVideo ? '#3b82f6' : '#3d7a52'}`,
+      display: 'inline-block', padding: '2px 10px', borderRadius: 999,
+      fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+      background: t.bg, color: t.color, border: `1px solid ${t.border}`,
     }}>
-      {isVideo ? '🎬 Vídeo' : '🖼 Imagem'}
+      {t.label}
     </span>
   );
 }
@@ -77,6 +90,15 @@ export default function AdminTvPage() {
   const [uploadOrdem, setUploadOrdem] = useState(0);
   const fileInputRef = useRef(null);
 
+  // Widget form state
+  const [widgetTipo, setWidgetTipo] = useState('TEMPO');
+  const [widgetNome, setWidgetNome] = useState('');
+  const [widgetConteudo, setWidgetConteudo] = useState('');
+  const [widgetRssPreset, setWidgetRssPreset] = useState(RSS_FEEDS[0].url);
+  const [widgetDuracao, setWidgetDuracao] = useState(15);
+  const [widgetOrdem, setWidgetOrdem] = useState(0);
+  const [savingWidget, setSavingWidget] = useState(false);
+
   const fetchAll = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/tv/midias/all`, authHeaders());
@@ -100,6 +122,31 @@ export default function AdminTvPage() {
   const showError = (msg) => {
     setError(msg);
     setTimeout(() => setError(''), 5000);
+  };
+
+  const handleWidget = async (e) => {
+    e.preventDefault();
+    if (!widgetConteudo.trim()) return showError('Informe o conteúdo do widget.');
+    setSavingWidget(true);
+    try {
+      await axios.post(`${API_URL}/api/tv/midias/widget`, {
+        tipo: widgetTipo,
+        nome: widgetNome || undefined,
+        conteudo: widgetConteudo,
+        duracao_seg: widgetDuracao,
+        ordem: widgetOrdem,
+      }, authHeaders());
+      showSuccess('Widget adicionado!');
+      setWidgetNome('');
+      setWidgetConteudo('');
+      setWidgetDuracao(15);
+      setWidgetOrdem(0);
+      fetchAll();
+    } catch (err) {
+      showError('Erro ao criar widget: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSavingWidget(false);
+    }
   };
 
   const handleUpload = async (e) => {
@@ -308,6 +355,96 @@ export default function AdminTvPage() {
         <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 10 }}>
           Formatos aceitos: JPG, PNG, GIF, MP4, WebM, MOV — máximo 50 MB
         </p>
+      </div>
+
+      {/* Widget Form */}
+      <div style={{
+        background: '#fff', borderRadius: 14, border: '1px solid #d1fae5',
+        padding: '24px 28px', marginBottom: 28,
+        boxShadow: '0 1px 4px rgba(61,122,82,0.07)',
+      }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a2e22', marginBottom: 4 }}>
+          Adicionar widget dinâmico
+        </h2>
+        <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 18 }}>
+          🌤 <strong>Previsão do Tempo</strong> — informe o nome da cidade (ex: Araripina) &nbsp;|&nbsp;
+          📰 <strong>Notícias</strong> — informe a URL de um feed RSS
+        </p>
+        <form onSubmit={handleWidget} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 80px 80px auto', gap: 12, alignItems: 'end' }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>Tipo *</label>
+            <select value={widgetTipo} onChange={e => setWidgetTipo(e.target.value)} style={inputStyle}>
+              <option value="TEMPO">🌤 Previsão do Tempo</option>
+              <option value="NOTICIA">📰 Notícias (RSS)</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+              {widgetTipo === 'TEMPO' ? 'Cidade *' : 'Feed RSS *'}
+            </label>
+            {widgetTipo === 'TEMPO' ? (
+              <input
+                type="text"
+                placeholder="Ex: Araripina"
+                value={widgetConteudo}
+                onChange={e => setWidgetConteudo(e.target.value)}
+                style={inputStyle}
+                required
+              />
+            ) : (
+              <>
+                <select
+                  value={widgetRssPreset}
+                  onChange={e => { setWidgetRssPreset(e.target.value); setWidgetConteudo(e.target.value); }}
+                  style={{ ...inputStyle, marginBottom: 6 }}
+                >
+                  {RSS_FEEDS.map(f => (
+                    <option key={f.url} value={f.url}>{f.label}</option>
+                  ))}
+                </select>
+                {widgetRssPreset === '' && (
+                  <input
+                    type="text"
+                    placeholder="https://seusite.com/feed.xml"
+                    value={widgetConteudo}
+                    onChange={e => setWidgetConteudo(e.target.value)}
+                    style={inputStyle}
+                    required
+                  />
+                )}
+              </>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>Nome (opcional)</label>
+            <input
+              type="text"
+              placeholder="Nome do slide"
+              value={widgetNome}
+              onChange={e => setWidgetNome(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>Duração (s)</label>
+            <input
+              type="number" min={5} max={120} value={widgetDuracao}
+              onChange={e => setWidgetDuracao(Number(e.target.value))}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>Ordem</label>
+            <input
+              type="number" min={0} value={widgetOrdem}
+              onChange={e => setWidgetOrdem(Number(e.target.value))}
+              style={inputStyle}
+            />
+          </div>
+          <button type="submit" disabled={savingWidget} style={{ ...btnPrimary, height: 38, whiteSpace: 'nowrap' }}>
+            {savingWidget ? 'Salvando...' : '+ Adicionar'}
+          </button>
+        </form>
       </div>
 
       {/* Media List */}
