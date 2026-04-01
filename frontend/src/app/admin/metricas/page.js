@@ -6,7 +6,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Activity, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Activity, Users, CheckCircle, XCircle, Clock, FlaskConical } from 'lucide-react';
 import { authHeaders } from '../../../lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -29,8 +29,23 @@ export default function MetricasPage() {
   const [periodo, setPeriodo] = useState({ inicio: firstDay, fim: lastDay });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [examesModal, setExamesModal] = useState(null); // { sala_id, sala_nome, rows }
+  const [loadingExames, setLoadingExames] = useState(false);
 
   useEffect(() => { fetchMetricas(); }, [periodo]);
+
+  async function abrirExamesSala(sala_id, sala_nome) {
+    setLoadingExames(true);
+    setExamesModal({ sala_id, sala_nome, rows: [] });
+    try {
+      const res = await axios.get(`${API_URL}/api/metricas/exames-sala`, {
+        params: { sala_id, ...periodo },
+        headers: authHeaders(),
+      });
+      setExamesModal({ sala_id, sala_nome, rows: res.data });
+    } catch {}
+    finally { setLoadingExames(false); }
+  }
 
   async function fetchMetricas() {
     setLoading(true);
@@ -76,6 +91,7 @@ export default function MetricasPage() {
     : '0.0';
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
 
@@ -106,13 +122,17 @@ export default function MetricasPage() {
         </div>
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <KpiCard title="Total de Pacientes" value={kpis.total}
             icon={<Users size={20} className="text-blue-500" />}
             color="border-l-blue-500" />
           <KpiCard title="Atendimentos Concluídos" value={kpis.concluidos}
             icon={<CheckCircle size={20} className="text-green-500" />}
             color="border-l-green-500" />
+          <KpiCard title="Exames Realizados" value={`${kpis.exames_concluidos || 0} / ${kpis.total_exames || 0}`}
+            sub="concluídos / solicitados"
+            icon={<FlaskConical size={20} className="text-purple-500" />}
+            color="border-l-purple-500" />
           <KpiCard title="Tempo Médio Total" value={kpis.tempo_medio_min ? `${kpis.tempo_medio_min} min` : '—'}
             sub="do check-in à conclusão"
             icon={<Clock size={20} className="text-amber-500" />}
@@ -208,6 +228,7 @@ export default function MetricasPage() {
                     <th className="pb-3 font-semibold">Sala</th>
                     <th className="pb-3 font-semibold text-center">Pacientes</th>
                     <th className="pb-3 font-semibold text-center">Concluídos</th>
+                    <th className="pb-3 font-semibold text-center">Exames</th>
                     <th className="pb-3 font-semibold text-center">Espera Média</th>
                     <th className="pb-3 font-semibold text-center">Duração Média</th>
                   </tr>
@@ -226,6 +247,14 @@ export default function MetricasPage() {
                           {s.concluidos}
                         </span>
                       </td>
+                      <td className="py-3 text-center">
+                        {parseInt(s.total_exames) > 0
+                          ? <button onClick={() => abrirExamesSala(s.sala_id, s.sala)}
+                              className="text-xs text-purple-700 font-semibold underline decoration-dotted hover:text-purple-900 cursor-pointer">
+                              {s.exames_concluidos}/{s.total_exames}
+                            </button>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="py-3 text-center text-gray-500">
                         {s.espera_media_min != null ? `${s.espera_media_min} min` : '—'}
                       </td>
@@ -236,7 +265,7 @@ export default function MetricasPage() {
                   ))}
                   {performance_salas.length === 0 && (
                     <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-400 italic text-sm">
+                      <td colSpan="6" className="py-8 text-center text-gray-400 italic text-sm">
                         Sem dados neste período.
                       </td>
                     </tr>
@@ -263,6 +292,53 @@ export default function MetricasPage() {
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <ExamesModal modal={examesModal} loading={loadingExames} onClose={() => setExamesModal(null)} />
+    </>
+  );
+}
+
+function ExamesModal({ modal, loading, onClose }) {
+  if (!modal) return null;
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-black text-gray-800">Exames — {modal.sala_nome}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        {loading ? (
+          <div className="text-center py-8 text-gray-400">Carregando...</div>
+        ) : modal.rows.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 italic">Nenhum exame registrado neste período.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
+                <th className="pb-2 font-semibold">Tipo</th>
+                <th className="pb-2 font-semibold">Exame</th>
+                <th className="pb-2 font-semibold text-center">Solicitados</th>
+                <th className="pb-2 font-semibold text-center">Concluídos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modal.rows.map((r, i) => (
+                <tr key={i} className="border-b border-gray-50 last:border-0">
+                  <td className="py-2 text-gray-500 text-xs">{r.tipo}</td>
+                  <td className="py-2 font-semibold text-gray-800">{r.subtipo}</td>
+                  <td className="py-2 text-center text-gray-500">{r.total}</td>
+                  <td className="py-2 text-center">
+                    <span className={`font-bold ${parseInt(r.concluidos) === parseInt(r.total) ? 'text-green-600' : 'text-purple-600'}`}>
+                      {r.concluidos}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

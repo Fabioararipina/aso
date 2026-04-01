@@ -36,6 +36,7 @@ export default function RecepcaoAsoPage() {
   const [examesSelecionados, setExamesSelecionados] = useState({}); // { [salaId]: number[] }
   const [mostrarOpcionais, setMostrarOpcionais] = useState(false);
   const [empresa, setEmpresa] = useState('');
+  const [empresaSugestoes, setEmpresaSugestoes] = useState([]);
   const [funcao, setFuncao] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [loading, setLoading] = useState(false);
@@ -301,11 +302,33 @@ export default function RecepcaoAsoPage() {
               </button>
               {mostrarOpcionais && (
                 <div className="mt-3 space-y-3 pl-1">
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Empresa</label>
-                    <input type="text" value={empresa} onChange={e => setEmpresa(e.target.value)}
+                    <input type="text" value={empresa}
+                      onChange={e => {
+                        setEmpresa(e.target.value);
+                        if (e.target.value.length >= 2) {
+                          axios.get(`${API_URL}/api/empresas`, { params: { q: e.target.value }, headers: authHeaders() })
+                            .then(r => setEmpresaSugestoes(r.data))
+                            .catch(() => {});
+                        } else {
+                          setEmpresaSugestoes([]);
+                        }
+                      }}
+                      onBlur={() => setTimeout(() => setEmpresaSugestoes([]), 150)}
                       placeholder="Nome da empresa contratante"
                       className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3d7a52] transition" />
+                    {empresaSugestoes.length > 0 && (
+                      <ul className="absolute z-10 bg-white border border-gray-200 rounded-xl shadow-lg w-full mt-1 max-h-48 overflow-y-auto">
+                        {empresaSugestoes.map((s, i) => (
+                          <li key={i}
+                            onMouseDown={() => { setEmpresa(s); setEmpresaSugestoes([]); }}
+                            className="px-4 py-2.5 text-sm text-gray-700 hover:bg-[#f0f7f4] cursor-pointer">
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1">Cargo / Função</label>

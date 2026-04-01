@@ -20,10 +20,28 @@ router.post('/auth/tv-token', auth, AuthController.gerarCodigoTv);
 
 // Métricas
 router.get('/metricas', auth, MetricasController.obterIndicadores);
+router.get('/metricas/exames-sala', auth, MetricasController.obterExamesSala);
 
 // Pacientes
 router.post('/pacientes', auth, PacienteController.criar);
 router.get('/pacientes/buscar', auth, PacienteController.buscarPorWhatsapp);
+
+// Empresas — autocomplete
+router.get('/empresas', auth, async (req, res) => {
+  const pool = require('../config/database');
+  const { q } = req.query;
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT empresa FROM atendimentos
+       WHERE empresa ILIKE $1 AND empresa IS NOT NULL AND empresa <> ''
+       ORDER BY empresa LIMIT 10`,
+      [`%${q || ''}%`]
+    );
+    res.json(rows.map(r => r.empresa));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Atendimentos
 router.post('/atendimentos', auth, AtendimentoController.criar);
