@@ -1,0 +1,55 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  debug-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🔍 DIAGNÓSTICO DE REDE
+        env:
+          HOST: ${{ secrets.HOST }}
+        run: |
+          echo "=== INICIANDO DIAGNÓSTICO ==="
+          echo "Tentando conectar em: $HOST (Porta 22)"
+          
+          # 1. Verifica se o IP foi carregado
+          if [ -z "$HOST" ]; then
+            echo "❌ ERRO CRÍTICO: O Secret HOST está vazio!"
+            exit 1
+          fi
+
+          # 2. Teste de Ping
+          echo "--- Teste de Ping ---"
+          ping -c 3 $HOST || echo "⚠️ Ping falhou (pode ser bloqueio de ICMP, normal)"
+
+          # 3. Teste de Porta (Netcat) - O MAIS IMPORTANTE
+          echo "--- Teste de Porta 22 (SSH) ---"
+          nc -zv -w 5 $HOST 22 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ CONEXÃO TCP BEM SUCEDIDA! O servidor está acessível."
+          else
+            echo "❌ FALHA DE CONEXÃO TCP. O GitHub não consegue ver o servidor."
+            echo "Possíveis causas: IP errado, Firewall bloqueando ou Servidor desligado."
+            exit 1
+          fi
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "🎉 Conectado!"
+            cd /var/www/essencialsaude
+            git pull origin main
+            cd backend && npm install
+            cd ../frontend && npm install && npm run build
+            pm2 restart all
