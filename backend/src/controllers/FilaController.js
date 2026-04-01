@@ -93,7 +93,10 @@ exports.chamar = async (req, res) => {
     if (io) {
       io.emit('fila:atualizada', { sala_slug });
       io.emit('tv:atualizar');
-      io.emit('paciente:chamado', { paciente_nome: paciente.nome, sala_nome: sala.nome });
+      // Sala administrativa não anuncia na TV
+      if (!sala.administrativa) {
+        io.emit('paciente:chamado', { paciente_nome: paciente.nome, sala_nome: sala.nome });
+      }
     }
     res.json({ success: true });
   } catch (err) {
