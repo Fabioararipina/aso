@@ -37,7 +37,8 @@ function LoginForm() {
     setCarregando(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const apiUrl = `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, senha }),
