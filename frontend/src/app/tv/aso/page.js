@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_URL } from '@/lib/api';
 
 const SALA_COLORS = {
   PENDENTE: { bg: '#fbbf24', border: '#d97706' },

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import axios from 'axios';
 import io from 'socket.io-client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_URL } from '@/lib/api';
 
 const STATUS_COLORS = {
   PENDENTE:       { bg: '#fbbf24', border: '#d97706', label: 'Aguardando' },

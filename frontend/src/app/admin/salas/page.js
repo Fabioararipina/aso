@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { authHeaders } from '../../../lib/auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_URL } from '@/lib/api';
 const EMPTY_FORM = { nome: '', slug: '', tempo_medio_min: 15, ativo: true, administrativa: false, requer_adm: false, hora_inicio: '' };
 
 export default function AdminSalasPage() {

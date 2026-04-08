@@ -12,6 +12,9 @@ function setupAxios() {
   if (token) {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
+  if (typeof window !== 'undefined') {
+    axios.defaults.baseURL = `http://${window.location.hostname}:3001`;
+  }
 }
 
 // Interceptor de resposta: redireciona para login em caso de 401

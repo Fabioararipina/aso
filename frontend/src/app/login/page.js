@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isAuthenticated, getUser } from '../../lib/auth';
+import { API_URL } from '../../lib/api';
 
 function LoginForm() {
   const router = useRouter();
@@ -13,8 +14,6 @@ function LoginForm() {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   // Se já está autenticado, redireciona conforme perfil
   useEffect(() => {

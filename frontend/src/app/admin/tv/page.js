@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_URL } from '@/lib/api';
 
 const RSS_FEEDS = [
   { label: 'G1 — Notícias', url: 'https://g1.globo.com/rss/g1/' },

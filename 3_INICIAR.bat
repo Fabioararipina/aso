@@ -19,7 +19,7 @@ call pm2 start src/index.js --name aso-backend
 echo.
 echo Iniciando frontend...
 cd /d "%~dp0frontend"
-call pm2 start "npm start" --name aso-frontend
+call pm2 start node --name aso-frontend -- "C:\ASO\frontend\node_modules\next\dist\bin\next" dev -H 0.0.0.0
 
 echo.
 call pm2 save
