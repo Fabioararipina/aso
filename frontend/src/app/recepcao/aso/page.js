@@ -120,18 +120,20 @@ export default function RecepcaoAsoPage() {
     e.preventDefault();
     setError('');
     if (!nome.trim()) return setError('Nome é obrigatório');
-    const waDig = whatsapp.replace(/\D/g, '');
-    if (waDig.length < 10 || waDig.length > 11) return setError('WhatsApp inválido — informe com DDD');
     if (salasSelecionadas.length === 0) return setError('Selecione pelo menos uma sala');
+    const waDig = whatsapp.replace(/\D/g, '');
+    if (waDig.length > 0 && (waDig.length < 10 || waDig.length > 11)) return setError('WhatsApp inválido — informe com DDD');
     setLoading(true);
     try {
       let paciente = null;
-      try {
-        const check = await axios.get(`${API_URL}/api/pacientes/buscar?whatsapp=${waDig}`, { headers: authHeaders() });
-        paciente = check.data;
-      } catch {}
+      if (waDig.length >= 10) {
+        try {
+          const check = await axios.get(`${API_URL}/api/pacientes/buscar?whatsapp=${waDig}`, { headers: authHeaders() });
+          paciente = check.data;
+        } catch {}
+      }
       if (!paciente) {
-        const resp = await axios.post(`${API_URL}/api/pacientes`, { nome: nome.trim(), whatsapp: waDig }, { headers: authHeaders() });
+        const resp = await axios.post(`${API_URL}/api/pacientes`, { nome: nome.trim(), whatsapp: waDig || null }, { headers: authHeaders() });
         paciente = resp.data;
       }
       // Montar exames_por_sala (apenas salas com exames selecionados)
@@ -285,7 +287,7 @@ export default function RecepcaoAsoPage() {
             {/* WhatsApp */}
             <div>
               <label className="block text-sm font-semibold text-gray-600 mb-1">
-                WhatsApp <span className="text-red-500">*</span>
+                WhatsApp <span className="text-gray-400 font-normal">(opcional)</span>
               </label>
               <input type="tel" value={whatsapp} onChange={e => setWhatsapp(maskWhatsapp(e.target.value))}
                 placeholder="(87) 99999-9999"
