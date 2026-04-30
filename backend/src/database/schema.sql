@@ -22,7 +22,7 @@ ON CONFLICT (slug) DO NOTHING;
 CREATE TABLE IF NOT EXISTS pacientes (
   id SERIAL PRIMARY KEY,
   nome VARCHAR(200) NOT NULL,
-  whatsapp VARCHAR(20) NOT NULL,
+  whatsapp VARCHAR(20),
   cpf VARCHAR(14),
   data_nascimento DATE,
   criado_em TIMESTAMP DEFAULT NOW()

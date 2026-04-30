@@ -6,6 +6,7 @@ const MIGRATIONS = [
   // schema.sql, migration_exames.sql, migration_subtipos.sql
   // já foram aplicadas em versões anteriores — não rodar novamente
   'migration_v4.sql',
+  'migration_v6.sql',
 ];
 
 async function migrate() {
